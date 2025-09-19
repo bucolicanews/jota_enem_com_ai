@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { showSuccess, showError } from '@/utils/toast';
-import { Loader2, PlusCircle, Trash2, TestTube, MessageSquareText } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, TestTube, MessageSquareText, Pencil } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
+import { EditModelDialog } from '@/components/EditModelDialog'; // Importar o componente de edição
 
 interface LanguageModel {
   id: string;
@@ -33,6 +34,10 @@ const LanguageModels = () => {
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
   const [modelVariant, setModelVariant] = useState('');
+
+  // Estados para o diálogo de edição
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedModelToEdit, setSelectedModelToEdit] = useState<LanguageModel | null>(null);
 
   useEffect(() => {
     const getUser = async () => {
@@ -94,6 +99,7 @@ const LanguageModels = () => {
   };
 
   const handleDelete = async (modelId: string) => {
+    if (!window.confirm('Tem certeza que deseja deletar este modelo de IA?')) return;
     const { error } = await supabase.from('language_models').delete().eq('id', modelId);
     if (error) {
       showError('Erro ao deletar a chave de API.');
@@ -126,6 +132,18 @@ const LanguageModels = () => {
 
   const handleChat = (modelId: string) => {
     navigate(`/ai-chat/${modelId}`);
+  };
+
+  // Função para abrir o diálogo de edição
+  const handleEditClick = (model: LanguageModel) => {
+    setSelectedModelToEdit(model);
+    setIsEditDialogOpen(true);
+  };
+
+  // Função para fechar o diálogo de edição e recarregar os modelos
+  const handleEditSuccess = () => {
+    setIsEditDialogOpen(false);
+    if (user) fetchModels(user.id);
   };
 
   const MODEL_VARIANTS: Record<string, string[]> = {
@@ -254,6 +272,13 @@ const LanguageModels = () => {
                       Conversar
                     </Button>
                     <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditClick(model)} // Botão de editar
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => handleDelete(model.id)}
@@ -267,6 +292,14 @@ const LanguageModels = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Diálogo de Edição */}
+      <EditModelDialog
+        model={selectedModelToEdit}
+        isOpen={isEditDialogOpen}
+        onClose={() => setIsEditDialogOpen(false)}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 };
