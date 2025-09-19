@@ -166,8 +166,7 @@ const LanguageModels = () => {
               Se você precisar de mais opções de modelos de IA, considere
               <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-800" onClick={() => navigate('/pricing')}>
                 atualizar seu plano
-              </Button>
-              para PRO.
+              </Button> para PRO.
             </p>
           </div>
         </CardHeader>
