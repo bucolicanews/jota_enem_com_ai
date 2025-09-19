@@ -22,7 +22,7 @@ import UserCreate from './pages/UserCreate';
 import UpdatePassword from './pages/UpdatePassword';
 import NotFound from './pages/NotFound';
 import ForumFree from './pages/ForumFree';
-import AdminStandardModels from './pages/AdminStandardModels'; // Importar a nova página
+import { AdminStandardModels } from './pages/AdminStandardModels'; // Importar a nova página
 import StandardModelsList from './pages/StandardModelsList'; // Importar a nova página
 
 function App() {

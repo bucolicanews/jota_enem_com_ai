@@ -6,42 +6,36 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { showSuccess, showError } from '@/utils/toast';
-import { Loader2, PlusCircle, Pencil, Trash2, TestTube, MessageSquareText, Bot, Image as ImageIcon } from 'lucide-react';
-import type { User } from '@supabase/supabase-js';
-import { requireAdmin } from '@/utils/permissions';
+import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MultiSelect } from '@/components/ui/multi-select';
+import { showSuccess, showError } from '@/utils/toast';
+import { Loader2, PlusCircle, Trash2, TestTube, MessageSquareText, Pencil, ShieldAlert, XCircle } from 'lucide-react';
+import type { User } from '@supabase/supabase-js';
+import { EditModelDialog } from '@/components/EditModelDialog';
+import { requireAdmin } from '@/utils/permissions';
 
 interface LanguageModel {
   id: string;
-  user_id: string | null; // Pode ser null para modelos padrão
+  user_id: string | null;
   provider: string;
   api_key: string;
   model_name: string | null;
   model_variant: string | null;
   is_active: boolean;
-  is_standard: boolean; // Novo campo
-  system_message: string | null; // Novo campo
-  description: string | null; // Novo campo
-  avatar_url: string | null; // Novo campo
+  is_standard: boolean;
+  system_message: string | null;
+  description: string | null;
+  avatar_url: string | null;
   created_at: string;
-  documents?: DocumentItem[]; // Documentos associados
-}
-
-interface DocumentItem {
-  id: string;
-  file_name: string;
-  file_path: string;
 }
 
 const MODEL_VARIANTS: Record<string, string[]> = {
   'Google Gemini': ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest', 'gemini-1.0-pro'],
+  // Adicione outros provedores e seus modelos aqui, se necessário
 };
 
-const AdminStandardModels = () => {
+export const AdminStandardModels = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -51,55 +45,46 @@ const AdminStandardModels = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testingModelId, setTestingModelId] = useState<string | null>(null);
 
-  const [editMode, setEditMode] = useState(false);
-  const [currentModel, setCurrentModel] = useState<LanguageModel | null>(null);
-
-  // Form states
+  // Estados do formulário para adicionar/editar
   const [provider, setProvider] = useState('Google Gemini');
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
   const [modelVariant, setModelVariant] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
   const [description, setDescription] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [isActive, setIsActive] = useState(true);
-  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
-  const [availableDocuments, setAvailableDocuments] = useState<DocumentItem[]>([]);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Estados para o diálogo de edição
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedModelToEdit, setSelectedModelToEdit] = useState<LanguageModel | null>(null);
+
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return '..';
+    const names = name.split(' ');
+    if (names.length > 1) {
+      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
 
   const fetchModels = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('language_models')
-      .select('*, model_documents(document_id)')
-      .eq('is_standard', true)
+      .select('*')
+      .eq('is_standard', true) // Apenas modelos padrão
       .order('created_at', { ascending: false });
 
     if (error) {
-      showError('Erro ao carregar modelos padrão.');
+      showError('Erro ao carregar agentes professores.');
       console.error('Error fetching standard models:', error);
     } else {
-      const modelsWithDocs = data.map((model: any) => ({
-        ...model,
-        documents: model.model_documents.map((md: any) => ({ id: md.document_id })),
-      }));
-      setModels(modelsWithDocs as LanguageModel[]);
+      setModels(data as LanguageModel[]);
     }
     setLoading(false);
-  }, []);
-
-  const fetchAvailableDocuments = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('id, file_name, file_path')
-      .order('file_name', { ascending: true });
-
-    if (error) {
-      console.error('Erro ao carregar documentos disponíveis:', error);
-    } else {
-      setAvailableDocuments(data || []);
-    }
   }, []);
 
   useEffect(() => {
@@ -113,49 +98,31 @@ const AdminStandardModels = () => {
       setUser(loggedInUser);
       const canAccess = await requireAdmin(loggedInUser.id);
       setIsAdmin(canAccess);
-
       if (canAccess) {
         fetchModels();
-        fetchAvailableDocuments();
-      } else {
-        showError('Acesso negado. Apenas administradores podem gerenciar modelos padrão.');
-        navigate('/dashboard');
       }
       setCheckingPermissions(false);
     };
     checkPermissionsAndFetchData();
-  }, [navigate, fetchModels, fetchAvailableDocuments]);
+  }, [navigate, fetchModels]);
 
   const resetForm = () => {
     setProvider('Google Gemini');
     setApiKey('');
     setModelName('');
     setModelVariant('');
+    setIsActive(true);
     setSystemMessage('');
     setDescription('');
     setAvatarUrl('');
-    setIsActive(true);
-    setSelectedDocumentIds([]);
-    setEditMode(false);
-    setCurrentModel(null);
-  };
-
-  const handleEditClick = (model: LanguageModel) => {
-    setEditMode(true);
-    setCurrentModel(model);
-    setProvider(model.provider);
-    setApiKey(''); // API Key is not pre-filled for security
-    setModelName(model.model_name || '');
-    setModelVariant(model.model_variant || '');
-    setSystemMessage(model.system_message || '');
-    setDescription(model.description || '');
-    setAvatarUrl(model.avatar_url || '');
-    setIsActive(model.is_active);
-    setSelectedDocumentIds(model.documents?.map(doc => doc.id) || []);
+    setUploading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0 || !user) {
+    if (!e.target.files || e.target.files.length === 0) {
       showError("Nenhum arquivo selecionado.");
       return;
     }
@@ -165,19 +132,15 @@ const AdminStandardModels = () => {
       return;
     }
     const fileExt = file.name.split('.').pop();
-    const filePath = `public/${currentModel?.id || 'new'}/${Date.now()}.${fileExt}`; // Path dentro do bucket
+    const filePath = `model_avatars/${Date.now()}.${fileExt}`;
 
-    setUploadingAvatar(true);
+    setUploading(true);
     try {
-      // If editing and there's an old avatar, remove it
-      if (editMode && currentModel?.avatar_url) {
-        const oldFilePath = currentModel.avatar_url.split('/model_avatars/')[1];
-        if (oldFilePath) await supabase.storage.from('model_avatars').remove([oldFilePath]);
-      }
-
       const { error: uploadError } = await supabase.storage.from('model_avatars').upload(filePath, file, { upsert: true });
-      if (uploadError) throw uploadError;
 
+      if (uploadError) {
+        throw uploadError;
+      }
       const { data } = supabase.storage.from('model_avatars').getPublicUrl(filePath);
       setAvatarUrl(data.publicUrl);
       showSuccess('Avatar enviado com sucesso!');
@@ -185,12 +148,12 @@ const AdminStandardModels = () => {
       showError(`Erro no upload do avatar: ${error.message}`);
       console.error('Erro de upload:', error);
     } finally {
-      setUploadingAvatar(false);
+      setUploading(false);
     }
   };
 
   const handleDeleteAvatar = async () => {
-    if (!avatarUrl || !currentModel) return;
+    if (!avatarUrl) return;
 
     const filePath = avatarUrl.split('/model_avatars/')[1];
     if (!filePath) {
@@ -200,109 +163,88 @@ const AdminStandardModels = () => {
 
     try {
       const { error: removeError } = await supabase.storage.from('model_avatars').remove([filePath]);
-      if (removeError) throw removeError;
-
-      const { error: updateError } = await supabase.from('language_models').update({ avatar_url: null }).eq('id', currentModel.id);
-      if (updateError) throw updateError;
-
+      if (removeError) {
+        throw removeError;
+      }
       setAvatarUrl('');
       showSuccess('Avatar removido.');
     } catch (error: any) {
-      showError(`Erro ao remover avatar: ${error.message}`);
-      console.error('Erro ao remover avatar:', error);
+      showError(`Erro ao deletar o avatar: ${error.message}`);
+      console.error('Erro ao deletar avatar:', error);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !isAdmin) {
+    if (!isAdmin) {
       showError('Acesso negado.');
       return;
     }
-    if (!provider || !apiKey || !modelName || !modelVariant || !systemMessage) {
+    if (!provider || !apiKey || !modelName || !modelVariant || !systemMessage || !description) {
       showError('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
+    setIsSubmitting(true);
+
+    const modelData = {
+      user_id: null, // Standard models are not linked to a specific user
+      provider,
+      api_key: apiKey,
+      model_name: modelName,
+      model_variant: modelVariant,
+      is_active: isActive,
+      is_standard: true,
+      system_message: systemMessage,
+      description,
+      avatar_url: avatarUrl || null,
+    };
+
+    const { error } = await supabase.from('language_models').insert(modelData);
+
+    if (error) {
+      showError(`Erro ao adicionar modelo: ${error.message}`);
+      console.error('Submit error:', error);
+    } else {
+      showSuccess('Agente professor adicionado com sucesso!');
+      resetForm();
+      fetchModels();
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleDelete = async (modelId: string, modelAvatarUrl: string | null) => {
+    if (!isAdmin) {
+      showError('Acesso negado.');
+      return;
+    }
+    if (!window.confirm('Tem certeza que deseja deletar este agente professor?')) return;
 
     setIsSubmitting(true);
     try {
-      const modelData = {
-        user_id: null, // Standard models are not linked to a specific user
-        provider,
-        api_key: apiKey,
-        model_name: modelName,
-        model_variant: modelVariant,
-        is_active: isActive,
-        is_standard: true,
-        system_message: systemMessage,
-        description,
-        avatar_url: avatarUrl || null,
-      };
-
-      let error = null;
-      let newModelId = currentModel?.id;
-
-      if (editMode && currentModel) {
-        const { error: updateError } = await supabase
-          .from('language_models')
-          .update(modelData)
-          .eq('id', currentModel.id);
-        error = updateError;
-      } else {
-        const { data, error: insertError } = await supabase
-          .from('language_models')
-          .insert(modelData)
-          .select('id')
-          .single();
-        error = insertError;
-        if (data) newModelId = data.id;
-      }
-
-      if (error) throw error;
-
-      // Update model_documents
-      if (newModelId) {
-        // Delete existing associations
-        await supabase.from('model_documents').delete().eq('model_id', newModelId);
-        // Insert new associations
-        if (selectedDocumentIds.length > 0) {
-          const documentAssociations = selectedDocumentIds.map(docId => ({
-            model_id: newModelId,
-            document_id: docId,
-          }));
-          const { error: docError } = await supabase.from('model_documents').insert(documentAssociations);
-          if (docError) console.error('Erro ao associar documentos:', docError);
+      // 1. Deletar avatar do storage, se existir
+      if (modelAvatarUrl) {
+        const filePath = modelAvatarUrl.split('/model_avatars/')[1];
+        if (filePath) {
+          const { error: removeError } = await supabase.storage.from('model_avatars').remove([filePath]);
+          if (removeError) {
+            console.error('Erro ao deletar avatar do storage:', removeError);
+            // Não lançar erro aqui, apenas logar, para que a exclusão do DB possa continuar
+          }
         }
       }
 
-      showSuccess(`Modelo ${editMode ? 'atualizado' : 'adicionado'} com sucesso!`);
-      resetForm();
-      fetchModels();
-    } catch (error: any) {
-      showError(`Erro ao ${editMode ? 'atualizar' : 'adicionar'} modelo: ${error.message}`);
-      console.error('Submit error:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDelete = async (modelId: string) => {
-    if (!window.confirm('Tem certeza que deseja deletar este modelo de IA padrão? Esta ação é irreversível.')) return;
-    setLoading(true);
-    try {
-      // Delete associated documents first (if RLS allows cascade, this might not be strictly necessary, but good practice)
-      await supabase.from('model_documents').delete().eq('model_id', modelId);
-
+      // 2. Deletar o modelo do banco de dados
       const { error } = await supabase.from('language_models').delete().eq('id', modelId);
-      if (error) throw error;
-
-      showSuccess('Modelo deletado com sucesso!');
+      if (error) {
+        throw error;
+      }
+      showSuccess('Agente professor deletado com sucesso!');
       fetchModels();
     } catch (error: any) {
-      showError(`Erro ao deletar modelo: ${error.message}`);
+      showError(`Erro ao deletar agente professor: ${error.message}`);
       console.error('Delete error:', error);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -327,81 +269,69 @@ const AdminStandardModels = () => {
     }
   };
 
+  const handleChat = (modelId: string) => {
+    navigate(`/ai-chat/${modelId}`);
+  };
+
+  const handleEditClick = (model: LanguageModel) => {
+    setSelectedModelToEdit(model);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    setIsEditDialogOpen(false);
+    fetchModels();
+  };
+
   if (checkingPermissions) {
+    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+
+  if (!isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center text-destructive"><ShieldAlert className="h-12 w-12 mx-auto mb-4" />Acesso Negado</CardTitle>
+            <CardDescription className="text-center">Apenas administradores podem acessar esta página.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <Button onClick={() => navigate('/dashboard')}>Voltar para o Dashboard</Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  if (!isAdmin) {
-    return null; // Should be redirected by useEffect
-  }
-
-  const getInitials = (name: string | null | undefined) => {
-    if (!name) return '..';
-    const names = name.split(' ');
-    if (names.length > 1) {
-      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
-
   return (
-    <div className="space-y-8 p-4 md:p-8">
+    <div className="space-y-6 p-4 md:p-8">
       <Card>
         <CardHeader>
-          <CardTitle>{editMode ? 'Editar Modelo Padrão de IA' : 'Adicionar Novo Modelo Padrão de IA'}</CardTitle>
-          <CardDescription>
-            Gerencie os modelos de IA que serão oferecidos como "agentes professores" para usuários PRO.
-          </CardDescription>
+          <CardTitle>Adicionar Novo Agente Professor</CardTitle>
+          <CardDescription>Configure um novo modelo de IA para ser um agente professor padrão.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex flex-col items-center gap-4">
-              <Avatar className="h-24 w-24 border-2 border-gray-200">
-                <AvatarImage src={avatarUrl || ''} alt={modelName || 'Agente'} />
-                <AvatarFallback><Bot className="h-10 w-10" /></AvatarFallback>
-              </Avatar>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={avatarInputRef}
-                onChange={handleAvatarUpload}
-                disabled={uploadingAvatar}
-              />
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}>
-                  {uploadingAvatar ? "Enviando..." : "Alterar Avatar"}
-                </Button>
-                {avatarUrl && (
-                  <Button type="button" variant="destructive" onClick={handleDeleteAvatar} disabled={uploadingAvatar}>
-                    <Trash2 className="h-4 w-4 mr-2" /> Remover Avatar
-                  </Button>
-                )}
-              </div>
-            </div>
-
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="model-name">Nome do Agente (Ex: Professor de Matemática)</Label>
-                <Input id="model-name" value={modelName} onChange={(e) => setModelName(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="provider">Provedor</Label>
-                <Select value={provider} onValueChange={setProvider} disabled>
-                  <SelectTrigger id="provider"><SelectValue /></SelectTrigger>
+                <Select value={provider} onValueChange={setProvider}>
+                  <SelectTrigger id="provider">
+                    <SelectValue placeholder="Selecione o provedor" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Google Gemini">Google Gemini</SelectItem>
+                    {/* Adicione outros provedores aqui, se necessário */}
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="model-variant">Modelo Específico</Label>
-                <Select value={modelVariant} onValueChange={setModelVariant} disabled={!provider} required>
-                  <SelectTrigger id="model-variant"><SelectValue /></SelectTrigger>
+                <Select value={modelVariant} onValueChange={setModelVariant} disabled={!provider}>
+                  <SelectTrigger id="model-variant">
+                    <SelectValue placeholder="Selecione o modelo" />
+                  </SelectTrigger>
                   <SelectContent>
                     {provider && MODEL_VARIANTS[provider]?.map((variant) => (
                       <SelectItem key={variant} value={variant}>{variant}</SelectItem>
@@ -409,57 +339,103 @@ const AdminStandardModels = () => {
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="api-key">Chave de API (Será usada como padrão)</Label>
+                <Label htmlFor="model-name">Nome do Agente</Label>
+                <Input
+                  id="model-name"
+                  value={modelName}
+                  onChange={(e) => setModelName(e.target.value)}
+                  placeholder="Ex: Professor de Matemática"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="api-key">Chave de API</Label>
                 <Input
                   id="api-key"
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={editMode ? "Deixe em branco para não alterar" : "Insira a chave de API"}
-                  required={!editMode}
+                  placeholder="Insira a chave de API"
+                  required
                 />
               </div>
+
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="description">Descrição Curta do Agente</Label>
-                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Uma breve descrição do que este agente faz." />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="system-message">Mensagem do Sistema (Personalidade do Agente)</Label>
-                <Textarea id="system-message" value={systemMessage} onChange={(e) => setSystemMessage(e.target.value)} rows={6} placeholder="Ex: Você é um professor de matemática do ENEM, muito didático e paciente..." required />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="documents">Documentos de Base (Conhecimento do Agente)</Label>
-                <MultiSelect
-                  options={availableDocuments.map(doc => ({ label: doc.file_name, value: doc.id }))}
-                  selected={selectedDocumentIds}
-                  onSelectChange={setSelectedDocumentIds}
-                  placeholder="Selecione documentos para o agente"
+                <Label htmlFor="system-message">Mensagem de Sistema (Instruções para a IA)</Label>
+                <Textarea
+                  id="system-message"
+                  value={systemMessage}
+                  onChange={(e) => setSystemMessage(e.target.value)}
+                  placeholder="Ex: Você é um professor de matemática especializado em ENEM. Responda de forma didática..."
+                  rows={4}
+                  required
                 />
               </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="description">Descrição Curta (para exibição)</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Ex: Agente especializado em matemática para o ENEM."
+                  rows={2}
+                  required
+                />
+              </div>
+
               <div className="flex items-center space-x-2 md:col-span-2">
-                <Switch id="is-active" checked={isActive} onCheckedChange={setIsActive} />
-                <Label htmlFor="is-active">Agente Ativo (Disponível para usuários PRO)</Label>
+                <Switch
+                  id="is-active"
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
+                />
+                <Label htmlFor="is-active">Ativo (Visível para usuários PRO)</Label>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Avatar do Agente</Label>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-20 w-20 border-2">
+                    <AvatarImage src={avatarUrl || ''} alt={modelName || 'Agente'} />
+                    <AvatarFallback>{getInitials(modelName)}</AvatarFallback>
+                  </Avatar>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    ref={fileInputRef}
+                    onChange={handleAvatarUpload}
+                    disabled={uploading}
+                  />
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                    {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Selecionar Avatar'}
+                  </Button>
+                  {avatarUrl && (
+                    <Button type="button" variant="ghost" size="icon" onClick={handleDeleteAvatar} disabled={uploading}>
+                      <XCircle className="h-5 w-5 text-red-500" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={isSubmitting || uploadingAvatar}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editMode ? 'Salvar Alterações' : 'Adicionar Agente'}
-              </Button>
-              {editMode && (
-                <Button type="button" variant="outline" onClick={resetForm} disabled={isSubmitting || uploadingAvatar}>
-                  Cancelar Edição
-                </Button>
-              )}
-            </div>
+
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Adicionar Agente
+            </Button>
           </form>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Agentes Professores Cadastrados</CardTitle>
+          <CardTitle>Agentes Professores Ativos</CardTitle>
+          <CardDescription>Gerencie os modelos de IA padrão disponíveis para os usuários PRO.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -467,35 +443,34 @@ const AdminStandardModels = () => {
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : models.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Nenhum agente professor configurado ainda.
-            </p>
+            <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-8">
+              <XCircle className="h-12 w-12 mb-4 text-gray-400" />
+              <p>Nenhum agente professor padrão configurado ainda.</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {models.map((model) => (
-                <div key={model.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border rounded-lg shadow-sm">
-                  <div className="flex items-center gap-4 mb-4 md:mb-0">
-                    <Avatar className="h-12 w-12 border">
+                <div key={model.id} className="flex flex-col sm:flex-row items-center justify-between p-4 border rounded-lg shadow-sm">
+                  <div className="flex items-center gap-4 mb-4 sm:mb-0 sm:w-1/2">
+                    <Avatar className="h-12 w-12 border-2">
                       <AvatarImage src={model.avatar_url || ''} alt={model.model_name || 'Agente'} />
-                      <AvatarFallback><Bot className="h-6 w-6" /></AvatarFallback>
+                      <AvatarFallback>{getInitials(model.model_name)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h4 className="font-medium text-lg">{model.model_name}</h4>
+                      <h4 className="font-medium">{model.model_name} ({model.provider})</h4>
                       <p className="text-sm text-muted-foreground">{model.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {model.provider} - {model.model_variant}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">Modelo: {model.model_variant}</p>
+                      <p className={`text-xs font-semibold ${model.is_active ? 'text-green-600' : 'text-red-600'}`}>
                         Status: {model.is_active ? 'Ativo' : 'Inativo'}
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 justify-end">
+                  <div className="flex flex-wrap justify-center sm:justify-end gap-2 sm:w-1/2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleTest(model.id)}
-                      disabled={testingModelId === model.id}
+                      disabled={testingModelId === model.id || isSubmitting}
                     >
                       {testingModelId === model.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -507,7 +482,8 @@ const AdminStandardModels = () => {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => navigate(`/ai-chat/${model.id}`)}
+                      onClick={() => handleChat(model.id)}
+                      disabled={isSubmitting}
                     >
                       <MessageSquareText className="h-4 w-4 mr-2" />
                       Conversar
@@ -516,13 +492,15 @@ const AdminStandardModels = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleEditClick(model)}
+                      disabled={isSubmitting}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDelete(model.id)}
+                      onClick={() => handleDelete(model.id, model.avatar_url)}
+                      disabled={isSubmitting}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -533,6 +511,14 @@ const AdminStandardModels = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Diálogo de Edição */}
+      <EditModelDialog
+        model={selectedModelToEdit}
+        isOpen={isEditDialogOpen}
+        onClose={() => setIsEditDialogOpen(false)}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 };
