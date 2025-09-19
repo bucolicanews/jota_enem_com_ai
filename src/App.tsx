@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Documents from './pages/Documents';
 import LanguageModels from './pages/LanguageModels';
+import AIChat from './pages/AIChat'; // Importe a nova página de chat
 import Chat from './pages/Chat';
 import Forum from './pages/Forum';
 import News from './pages/News';
@@ -21,7 +22,7 @@ import UserCreate from './pages/UserCreate';
 import UpdatePassword from './pages/UpdatePassword';
 import NotFound from './pages/NotFound';
 import ForumFree from './pages/ForumFree';
-import From_create_user from './pages/Form_create_user';
+// import From_create_user from './pages/Form_create_user'; // Removido, pois é um componente de formulário, não uma página
 
 function App() {
   return (
@@ -54,7 +55,7 @@ function App() {
         } />
 
 
-        <Route path="/from_create_user" element={<From_create_user />} />
+        {/* <Route path="/from_create_user" element={<From_create_user />} /> */} {/* Removido */}
         <Route path="/forum" element={
           <MainLayout title="Fórum" useContainer={false}>
             <ProtectedRoute>
@@ -103,6 +104,14 @@ function App() {
           <MainLayout title="Modelos de IA">
             <ProtectedRoute requiredPermission="Pro">
               <LanguageModels />
+            </ProtectedRoute>
+          </MainLayout>
+        } />
+        {/* Nova rota para o chat com IA */}
+        <Route path="/ai-chat/:modelId" element={
+          <MainLayout title="Chat com IA" useContainer={false}>
+            <ProtectedRoute requiredPermission="Pro">
+              <AIChat />
             </ProtectedRoute>
           </MainLayout>
         } />

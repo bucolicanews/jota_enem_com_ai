@@ -24,6 +24,17 @@ interface Empresa {
   nome: string;
 }
 
+// Definindo a interface para o perfil do cliente com a estrutura correta
+interface ClienteProfileAdmin {
+  nome: string | null;
+  apelido: string | null;
+  avatar_url: string | null;
+  permissao: Permissao | null; // Corrigido para ser um objeto ou null
+  nivel_dificuldade: string | null;
+  cod_empresa: string | null;
+  bloqueado: boolean; // Adicionado
+}
+
 const ProfileFormAdmin = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -71,9 +82,9 @@ const ProfileFormAdmin = () => {
         // Fetch do perfil com todos os campos necessários
         const { data: ProfileFormAdmin, error: ProfileFormAdminError } = await supabase
           .from('cliente')
-          .select('nome, apelido, avatar_url, permissao:permissao_id(id, nome), nivel_dificuldade, cod_empresa')
+          .select('nome, apelido, avatar_url, permissao:permissao_id(id, nome), nivel_dificuldade, cod_empresa, bloqueado') // Adicionado 'bloqueado'
           .eq('id', ProfileFormAdminIdToFetch)
-          .single();
+          .single<ClienteProfileAdmin>(); // <--- Explicitamente tipando o retorno
 
         if (ProfileFormAdminError) {
           console.error('Erro ao carregar perfil:', ProfileFormAdminError);
@@ -90,8 +101,7 @@ const ProfileFormAdmin = () => {
           setNivelDificuldade(ProfileFormAdmin.nivel_dificuldade || 'iniciante');
           setPermissaoSelecionadaId(ProfileFormAdmin.permissao?.id || '');
           setEmpresaSelecionadaId(ProfileFormAdmin.cod_empresa || '');
-          // Supondo que 'bloqueado' seja um campo na tabela 'cliente'
-          setBloqueado(ProfileFormAdmin.bloqueado || false);
+          setBloqueado(ProfileFormAdmin.bloqueado || false); // Usando a propriedade 'bloqueado'
 
           if (id && ProfileFormAdmin.permissao && ProfileFormAdmin.permissao.nome) {
             setPermissaoNome(ProfileFormAdmin.permissao.nome);
@@ -304,7 +314,7 @@ const ProfileFormAdmin = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="cod_empresa">Empresa</Label>
-              <Select value={empresaSelecionadaId} onValueChange={setEmpresaSelecionadaId} disabled={!canEdit}>
+              <Select value={empresaSelecionadaId || ''} onValueChange={setEmpresaSelecionadaId} disabled={!canEdit}>
                 <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                 <SelectContent>
                   {empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}

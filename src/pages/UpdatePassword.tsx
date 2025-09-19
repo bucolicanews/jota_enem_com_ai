@@ -33,7 +33,7 @@ const UpdatePassword = () => {
 
     // Limpa o 'ouvinte' quando o componente é desmontado para evitar vazamentos de memória
     return () => {
-      authListener.unsubscribe();
+      authListener.subscription.unsubscribe(); // Corrigido aqui
     };
   }, [navigate]);
 

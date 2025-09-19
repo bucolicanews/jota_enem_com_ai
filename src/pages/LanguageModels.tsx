@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { showSuccess, showError } from '@/utils/toast';
-import { Loader2, PlusCircle, Trash2, TestTube } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, TestTube, MessageSquareText } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
 interface LanguageModel {
@@ -124,6 +124,10 @@ const LanguageModels = () => {
     }
   };
 
+  const handleChat = (modelId: string) => {
+    navigate(`/ai-chat/${modelId}`);
+  };
+
   const MODEL_VARIANTS: Record<string, string[]> = {
     OpenAI: ['gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
     'Google Gemini': ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest', 'gemini-1.0-pro'],
@@ -236,6 +240,14 @@ const LanguageModels = () => {
                         <TestTube className="h-4 w-4" />
                       )}
                       Testar
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleChat(model.id)}
+                    >
+                      <MessageSquareText className="h-4 w-4 mr-2" />
+                      Conversar
                     </Button>
                     <Button
                       variant="destructive"
