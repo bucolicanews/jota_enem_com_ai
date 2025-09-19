@@ -57,31 +57,16 @@ const Dashboard = () => {
           </Card>
         </Link>
         
-        {/* Card Modelo de AI */}
-        <Link to="/language-models" className="transform hover:-translate-y-1 transition-transform duration-300">
-          <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-semibold">Modelo de IA</CardTitle>
-              <KeyRound className="h-5 w-5 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Gerencie suas chaves de API para IAs.
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* Card Chat AI */}
+        {/* Card Chat da Turma */}
         <Link to="/chat" className="transform hover:-translate-y-1 transition-transform duration-300">
           <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-semibold">Chat AI</CardTitle>
-              <Bot className="h-5 w-5 text-purple-500" />
+              <CardTitle className="text-base font-semibold">Chat da Turma</CardTitle>
+              <MessageSquare className="h-5 w-5 text-blue-500" />
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Converse com a Inteligência Artificial sobre o ENEM.
+                Converse com outros alunos em tempo real.
               </p>
             </CardContent>
           </Card>
@@ -129,12 +114,12 @@ const Dashboard = () => {
              <Link to="/forum" className="transform hover:-translate-y-1 transition-transform duration-300">
             <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-base font-semibold">Fórum</CardTitle>
+                <CardTitle className="text-base font-semibold">Fórum PRO</CardTitle>
                 <MessageCircle className="h-5 w-5 text-orange-500" />
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Participe de discussões e tire suas dúvidas.
+                  Acesse o fórum completo com todas as funcionalidades.
                 </p>
               </CardContent>
             </Card>
@@ -180,6 +165,48 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             </Link>
+
+            <Link to="/documentos" className="transform hover:-translate-y-1 transition-transform duration-300">
+              <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base font-semibold">Meus Documentos</CardTitle>
+                  <BookCopy className="h-5 w-5 text-indigo-500" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Gerencie seus documentos e materiais de estudo.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/language-models" className="transform hover:-translate-y-1 transition-transform duration-300">
+              <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base font-semibold">Meus Modelos de IA</CardTitle>
+                  <KeyRound className="h-5 w-5 text-red-500" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Gerencie suas chaves de API para IAs pessoais.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/standard-models" className="transform hover:-translate-y-1 transition-transform duration-300">
+              <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base font-semibold">Agentes Professores</CardTitle>
+                  <Bot className="h-5 w-5 text-purple-500" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Converse com nossos agentes de IA especializados.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
           </>
         )}
         
@@ -187,25 +214,21 @@ const Dashboard = () => {
         {/* === Cards Específicos para Professor (Prof) e superiores === */}
         {/* ========================================= */}
         {userPermissions?.isProf && (
-<>
-             
+          <>
             <Link to="/admin/news" className="transform hover:-translate-y-1 transition-transform duration-300">
-            <Card className="bg-purple-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <Card className="bg-purple-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-base font-semibold">Meus Vídeos e Notícias</CardTitle>
-                <Newspaper className="h-5 w-5 text-red-600" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
+                  <Newspaper className="h-5 w-5 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
                     Gerenciar seus vídeos e notícias do ENEM.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-
-</>
-          
-          
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          </>
         )}
 
         {/* ========================================= */}
@@ -213,19 +236,18 @@ const Dashboard = () => {
         {/* ========================================= */}
         {userPermissions?.isAdmin && (
           <>
-           
-             <Link to="/admin/newsAdmin" className="transform hover:-translate-y-1 transition-transform duration-300">
-            <Card className="bg-amber-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <Link to="/admin/newsAdmin" className="transform hover:-translate-y-1 transition-transform duration-300">
+              <Card className="bg-amber-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-base font-semibold">Gerenciar Videos e Notícias</CardTitle>
-                <Newspaper className="h-5 w-5 text-red-600" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Gerenciar notícias e vídeos dos Professores e Outros Administradores
-                </p>
-              </CardContent>
-            </Card>
+                  <Newspaper className="h-5 w-5 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Gerenciar notícias e vídeos dos Professores e Outros Administradores
+                  </p>
+                </CardContent>
+              </Card>
             </Link>
             <Link to="/admin/redefinir-senha" className="transform hover:-translate-y-1 transition-transform duration-300">
               <Card className="bg-amber-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">

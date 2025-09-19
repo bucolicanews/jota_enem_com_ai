@@ -23,6 +23,7 @@ import UpdatePassword from './pages/UpdatePassword';
 import NotFound from './pages/NotFound';
 import ForumFree from './pages/ForumFree';
 import AdminStandardModels from './pages/AdminStandardModels'; // Importar a nova página
+import StandardModelsList from './pages/StandardModelsList'; // Importar a nova página
 
 function App() {
   return (
@@ -101,7 +102,7 @@ function App() {
           </MainLayout>
         } />
         <Route path="/language-models" element={
-          <MainLayout title="Modelos de IA">
+          <MainLayout title="Meus Modelos de IA">
             <ProtectedRoute requiredPermission="Pro">
               <LanguageModels />
             </ProtectedRoute>
@@ -112,6 +113,14 @@ function App() {
           <MainLayout title="Chat com IA" useContainer={false}>
             <ProtectedRoute requiredPermission="Pro">
               <AIChat />
+            </ProtectedRoute>
+          </MainLayout>
+        } />
+        {/* Nova rota para listar agentes professores padrão */}
+        <Route path="/standard-models" element={
+          <MainLayout title="Agentes Professores">
+            <ProtectedRoute requiredPermission="Pro">
+              <StandardModelsList />
             </ProtectedRoute>
           </MainLayout>
         } />
