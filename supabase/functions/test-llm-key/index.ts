@@ -1,0 +1,119 @@
+/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+
+import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    // Create a Supabase client with the user's auth token
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
+
+    // Get the user from the token
+    const { data: { user } } = await supabaseClient.auth.getUser()
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      })
+    }
+
+    const { modelId } = await req.json()
+    if (!modelId) {
+      return new Response(JSON.stringify({ error: 'modelId is required' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      })
+    }
+
+    // Create a service role client to securely fetch the API key
+    const serviceClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Fetch the model, ensuring the user owns it
+    const { data: model, error: dbError } = await serviceClient
+      .from('language_models')
+      .select('api_key, provider, model_variant')
+      .eq('id', modelId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (dbError || !model) {
+      return new Response(JSON.stringify({ error: 'Model not found or access denied' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 404,
+      })
+    }
+
+    const { api_key, provider, model_variant } = model;
+    let testResult = { success: false, message: 'Provider not supported' };
+
+    // Test OpenAI
+    if (provider === 'OpenAI') {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
+            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+        });
+        if (response.ok) {
+            testResult = { success: true, message: 'Conexão com OpenAI bem-sucedida!' };
+        } else {
+            const errorData = await response.json();
+            testResult = { success: false, message: `Falha na conexão com OpenAI: ${errorData.error?.message || 'Erro desconhecido'}` };
+        }
+    } 
+    // Test Google Gemini
+    else if (provider === 'Google Gemini') {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model_variant}:generateContent?key=${api_key}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: 'Hello' }] }] })
+        });
+        if (response.ok) {
+            testResult = { success: true, message: 'Conexão com Google Gemini bem-sucedida!' };
+        } else {
+            const errorData = await response.json();
+            testResult = { success: false, message: `Falha na conexão com Gemini: ${errorData.error?.message || 'Erro desconhecido'}` };
+        }
+    } 
+    // Test Anthropic
+    else if (provider === 'Anthropic') {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': api_key, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+        });
+        if (response.ok) {
+            testResult = { success: true, message: 'Conexão com Anthropic bem-sucedida!' };
+        } else {
+            const errorData = await response.json();
+            testResult = { success: false, message: `Falha na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}` };
+        }
+    }
+
+    return new Response(JSON.stringify(testResult), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    })
+  }
+})
