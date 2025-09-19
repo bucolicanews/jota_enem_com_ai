@@ -269,7 +269,19 @@ const Dashboard = () => {
               </Card>
             </Link>
             
-
+            <Link to="/admin/standard-models" className="transform hover:-translate-y-1 transition-transform duration-300">
+              <Card className="bg-amber-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base font-semibold">Gerenciar Agentes IA</CardTitle>
+                  <Bot className="h-5 w-5 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Crie e configure os agentes professores de IA.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
 
           </>
         )}

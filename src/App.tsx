@@ -22,7 +22,7 @@ import UserCreate from './pages/UserCreate';
 import UpdatePassword from './pages/UpdatePassword';
 import NotFound from './pages/NotFound';
 import ForumFree from './pages/ForumFree';
-// import From_create_user from './pages/Form_create_user'; // Removido, pois é um componente de formulário, não uma página
+import AdminStandardModels from './pages/AdminStandardModels'; // Importar a nova página
 
 function App() {
   return (
@@ -190,6 +190,13 @@ function App() {
           <MainLayout title="Admin - Permissões">
             <ProtectedRoute requiredPermission="Admin">
               <AdminPermissoes />
+            </ProtectedRoute>
+          </MainLayout>
+        } />
+        <Route path="/admin/standard-models" element={
+          <MainLayout title="Admin - Agentes Padrão">
+            <ProtectedRoute requiredPermission="Admin">
+              <AdminStandardModels />
             </ProtectedRoute>
           </MainLayout>
         } />
