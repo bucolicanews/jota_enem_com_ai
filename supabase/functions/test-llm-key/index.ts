@@ -70,6 +70,12 @@ serve(async (req) => {
     }
 
     const { api_key, provider, model_variant } = model;
+    
+    // --- LOGGING PARA DEPURAR O PROVEDOR ---
+    console.log('DEBUG: Provider recebido da DB:', provider);
+    console.log('DEBUG: Model Variant recebido da DB:', model_variant);
+    // --- FIM DO LOGGING ---
+
     let testResult = { success: false, message: 'Provider not supported' };
 
     // Test OpenAI
@@ -147,7 +153,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
-  } catch (error) {
+  } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
