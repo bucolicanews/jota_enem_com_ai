@@ -1,6 +1,9 @@
+// @ts-ignore: Deno imports are valid in runtime
 /// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
+// @ts-ignore: Deno imports are valid in runtime
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
+// @ts-ignore: ESM imports are valid in runtime
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const corsHeaders = {
@@ -16,8 +19,11 @@ serve(async (req) => {
 
   try {
     // Create a Supabase client with the user's auth token
+    // @ts-ignore: Deno is available in runtime
     const supabaseClient = createClient(
+      // @ts-ignore: Deno is available in runtime
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore: Deno is available in runtime
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
@@ -40,8 +46,11 @@ serve(async (req) => {
     }
 
     // Create a service role client to securely fetch the API key
+    // @ts-ignore: Deno is available in runtime
     const serviceClient = createClient(
+        // @ts-ignore: Deno is available in runtime
         Deno.env.get('SUPABASE_URL') ?? '',
+        // @ts-ignore: Deno is available in runtime
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
@@ -103,6 +112,34 @@ serve(async (req) => {
         } else {
             const errorData = await response.json();
             testResult = { success: false, message: `Falha na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}` };
+        }
+    }
+    // Test Groq
+    else if (provider === 'Groq') {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
+            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+        });
+        if (response.ok) {
+            testResult = { success: true, message: 'Conexão com Groq bem-sucedida!' };
+        } else {
+            const errorData = await response.json();
+            testResult = { success: false, message: `Falha na conexão com Groq: ${errorData.error?.message || 'Erro desconhecido'}` };
+        }
+    }
+    // Test DeepSeek
+    else if (provider === 'DeepSeek') {
+        const response = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
+            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+        });
+        if (response.ok) {
+            testResult = { success: true, message: 'Conexão com DeepSeek bem-sucedida!' };
+        } else {
+            const errorData = await response.json();
+            testResult = { success: false, message: `Falha na conexão com DeepSeek: ${errorData.error?.message || 'Erro desconhecido'}` };
         }
     }
 

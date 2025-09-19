@@ -118,6 +118,36 @@ serve(async (req) => {
             aiResponse = `Erro na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}`;
         }
     }
+    else if (provider === 'Groq') {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
+            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: userMessage }], max_tokens: 500 })
+        });
+        if (response.ok) {
+            const data = await response.json();
+            aiResponse = data.choices[0]?.message?.content || aiResponse;
+        } else {
+            const errorData = await response.json();
+            console.error('Groq API error:', errorData);
+            aiResponse = `Erro na conexão com Groq: ${errorData.error?.message || 'Erro desconhecido'}`;
+        }
+    }
+    else if (provider === 'DeepSeek') {
+        const response = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
+            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: userMessage }], max_tokens: 500 })
+        });
+        if (response.ok) {
+            const data = await response.json();
+            aiResponse = data.choices[0]?.message?.content || aiResponse;
+        } else {
+            const errorData = await response.json();
+            console.error('DeepSeek API error:', errorData);
+            aiResponse = `Erro na conexão com DeepSeek: ${errorData.error?.message || 'Erro desconhecido'}`;
+        }
+    }
 
     return new Response(JSON.stringify({ aiResponse }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
