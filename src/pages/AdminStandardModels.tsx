@@ -13,7 +13,7 @@ import { Loader2, PlusCircle, Pencil, Trash2, TestTube, MessageSquareText, Bot, 
 import type { User } from '@supabase/supabase-js';
 import { requireAdmin } from '@/utils/permissions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MultiSelect } from '@/components/ui/multi-select'; // Será criado em breve
+import { MultiSelect } from '@/components/ui/multi-select';
 
 interface LanguageModel {
   id: string;
@@ -165,20 +165,20 @@ const AdminStandardModels = () => {
       return;
     }
     const fileExt = file.name.split('.').pop();
-    const filePath = `model_avatars/${currentModel?.id || 'new'}/${Date.now()}.${fileExt}`;
+    const filePath = `public/${currentModel?.id || 'new'}/${Date.now()}.${fileExt}`; // Path dentro do bucket
 
     setUploadingAvatar(true);
     try {
       // If editing and there's an old avatar, remove it
       if (editMode && currentModel?.avatar_url) {
         const oldFilePath = currentModel.avatar_url.split('/model_avatars/')[1];
-        if (oldFilePath) await supabase.storage.from('avatars').remove([oldFilePath]);
+        if (oldFilePath) await supabase.storage.from('model_avatars').remove([oldFilePath]);
       }
 
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+      const { error: uploadError } = await supabase.storage.from('model_avatars').upload(filePath, file, { upsert: true });
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const { data } = supabase.storage.from('model_avatars').getPublicUrl(filePath);
       setAvatarUrl(data.publicUrl);
       showSuccess('Avatar enviado com sucesso!');
     } catch (error: any) {
@@ -199,7 +199,7 @@ const AdminStandardModels = () => {
     }
 
     try {
-      const { error: removeError } = await supabase.storage.from('avatars').remove([filePath]);
+      const { error: removeError } = await supabase.storage.from('model_avatars').remove([filePath]);
       if (removeError) throw removeError;
 
       const { error: updateError } = await supabase.from('language_models').update({ avatar_url: null }).eq('id', currentModel.id);
@@ -362,7 +362,7 @@ const AdminStandardModels = () => {
             <div className="flex flex-col items-center gap-4">
               <Avatar className="h-24 w-24 border-2 border-gray-200">
                 <AvatarImage src={avatarUrl || ''} alt={modelName || 'Agente'} />
-                <AvatarFallback>{getInitials(modelName)}</AvatarFallback>
+                <AvatarFallback><Bot className="h-10 w-10" /></AvatarFallback>
               </Avatar>
               <input
                 type="file"
