@@ -22,6 +22,10 @@ interface LanguageModel {
   created_at: string;
 }
 
+const MODEL_VARIANTS: Record<string, string[]> = {
+  'Google Gemini': ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest', 'gemini-1.0-pro'],
+};
+
 const LanguageModels = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
@@ -30,7 +34,7 @@ const LanguageModels = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testingModelId, setTestingModelId] = useState<string | null>(null);
 
-  const [provider, setProvider] = useState('');
+  const [provider, setProvider] = useState('Google Gemini'); // Definir Gemini como padrão
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
   const [modelVariant, setModelVariant] = useState('');
@@ -89,7 +93,7 @@ const LanguageModels = () => {
       showError('Erro ao salvar a chave de API.');
     } else {
       showSuccess('Chave de API salva com sucesso!');
-      setProvider('');
+      setProvider('Google Gemini'); // Resetar para Gemini
       setApiKey('');
       setModelName('');
       setModelVariant('');
@@ -146,36 +150,38 @@ const LanguageModels = () => {
     if (user) fetchModels(user.id);
   };
 
-  const MODEL_VARIANTS: Record<string, string[]> = {
-    OpenAI: ['gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
-    'Google Gemini': ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest', 'gemini-1.0-pro'],
-    Anthropic: ['claude-3.5-sonnet-20240620', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
-    Groq: ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768', 'gemma-7b-it'],
-    DeepSeek: ['deepseek-chat', 'deepseek-coder']
-  };
-
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Configurar Modelo de IA</CardTitle>
           <CardDescription>Adicione suas chaves de API para usar modelos de linguagem</CardDescription>
+          <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-400 text-blue-800 rounded-md">
+            <p className="font-semibold mb-2">Como obter sua chave de API do Google Gemini:</p>
+            <p className="text-sm">
+              Para usar o Google Gemini gratuitamente, você pode gerar uma chave de API no Google AI Studio.
+              Visite <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">aistudio.google.com/app/apikey</a> para começar.
+            </p>
+            <p className="text-sm mt-2">
+              Se você precisar de mais opções de modelos de IA, considere
+              <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-800" onClick={() => navigate('/pricing')}>
+                atualizar seu plano
+              </Button>
+              para PRO.
+            </p>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="provider">Provedor</Label>
-                <Select value={provider} onValueChange={setProvider}>
+                <Select value={provider} onValueChange={setProvider} disabled> {/* Desabilitado para ser apenas Gemini */}
                   <SelectTrigger id="provider">
                     <SelectValue placeholder="Selecione o provedor" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="OpenAI">OpenAI</SelectItem>
                     <SelectItem value="Google Gemini">Google Gemini</SelectItem>
-                    <SelectItem value="Anthropic">Anthropic (Claude)</SelectItem>
-                    <SelectItem value="Groq">Groq</SelectItem>
-                    <SelectItem value="DeepSeek">DeepSeek</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -200,7 +206,7 @@ const LanguageModels = () => {
                   id="model-name"
                   value={modelName}
                   onChange={(e) => setModelName(e.target.value)}
-                  placeholder="Ex: Meu Assistente GPT"
+                  placeholder="Ex: Meu Assistente Gemini"
                 />
               </div>
 
@@ -274,7 +280,7 @@ const LanguageModels = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleEditClick(model)} // Botão de editar
+                      onClick={() => handleEditClick(model)}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>

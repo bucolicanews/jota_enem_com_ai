@@ -26,11 +26,7 @@ interface EditModelDialogProps {
 }
 
 const MODEL_VARIANTS: Record<string, string[]> = {
-  OpenAI: ['gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
   'Google Gemini': ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest', 'gemini-1.0-pro'],
-  Anthropic: ['claude-3.5-sonnet-20240620', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
-  Groq: ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768', 'gemma-7b-it'],
-  DeepSeek: ['deepseek-chat', 'deepseek-coder']
 };
 
 export const EditModelDialog = ({ model, isOpen, onClose, onSuccess }: EditModelDialogProps) => {
@@ -102,14 +98,10 @@ export const EditModelDialog = ({ model, isOpen, onClose, onSuccess }: EditModel
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-provider">Provedor</Label>
-            <Select value={provider} onValueChange={setProvider}>
+            <Select value={provider} onValueChange={setProvider} disabled> {/* Desabilitado para ser apenas Gemini */}
               <SelectTrigger id="edit-provider"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="OpenAI">OpenAI</SelectItem>
                 <SelectItem value="Google Gemini">Google Gemini</SelectItem>
-                <SelectItem value="Anthropic">Anthropic (Claude)</SelectItem>
-                <SelectItem value="Groq">Groq</SelectItem>
-                <SelectItem value="DeepSeek">DeepSeek</SelectItem>
               </SelectContent>
             </Select>
           </div>
