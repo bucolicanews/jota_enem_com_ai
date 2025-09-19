@@ -70,6 +70,12 @@ serve(async (req) => {
     }
 
     const { api_key, provider, model_variant } = model;
+
+    // --- LOGGING PARA DEPURAR O PROVEDOR ---
+    console.log('DEBUG: Provider recebido da DB:', provider);
+    console.log('DEBUG: Model Variant recebido da DB:', model_variant);
+    // --- FIM DO LOGGING ---
+    
     let aiResponse = 'Não foi possível obter uma resposta do modelo de IA.';
 
     // Invoke the appropriate LLM based on the provider
