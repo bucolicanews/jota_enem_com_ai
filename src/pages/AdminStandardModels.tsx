@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2, PlusCircle, Trash2, TestTube, MessageSquareText, Pencil, ShieldAlert, XCircle } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
-import { EditModelDialog } from '@/components/EditModelDialog';
+import { EditStandardModelDialog } from '@/components/EditStandardModelDialog'; // Importar o novo componente
 import { requireAdmin } from '@/utils/permissions';
 
 interface LanguageModel {
@@ -57,9 +57,9 @@ export const AdminStandardModels = () => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Estados para o diálogo de edição
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedModelToEdit, setSelectedModelToEdit] = useState<LanguageModel | null>(null);
+  // Estados para o NOVO diálogo de edição de agentes padrão
+  const [isEditStandardDialogOpen, setIsEditStandardDialogOpen] = useState(false);
+  const [selectedStandardModelToEdit, setSelectedStandardModelToEdit] = useState<LanguageModel | null>(null);
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return '..';
@@ -273,13 +273,15 @@ export const AdminStandardModels = () => {
     navigate(`/ai-chat/${modelId}`);
   };
 
+  // Função para abrir o NOVO diálogo de edição de agentes padrão
   const handleEditClick = (model: LanguageModel) => {
-    setSelectedModelToEdit(model);
-    setIsEditDialogOpen(true);
+    setSelectedStandardModelToEdit(model);
+    setIsEditStandardDialogOpen(true);
   };
 
+  // Função para fechar o NOVO diálogo de edição e recarregar os modelos
   const handleEditSuccess = () => {
-    setIsEditDialogOpen(false);
+    setIsEditStandardDialogOpen(false);
     fetchModels();
   };
 
@@ -492,7 +494,7 @@ export const AdminStandardModels = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleEditClick(model)}
+                      onClick={() => handleEditClick(model)} // Usar o novo handleEditClick
                       disabled={isSubmitting}
                     >
                       <Pencil className="h-4 w-4" />
@@ -513,11 +515,11 @@ export const AdminStandardModels = () => {
         </CardContent>
       </Card>
 
-      {/* Diálogo de Edição */}
-      <EditModelDialog
-        model={selectedModelToEdit}
-        isOpen={isEditDialogOpen}
-        onClose={() => setIsEditDialogOpen(false)}
+      {/* NOVO Diálogo de Edição para Agentes Padrão */}
+      <EditStandardModelDialog
+        model={selectedStandardModelToEdit}
+        isOpen={isEditStandardDialogOpen}
+        onClose={() => setIsEditStandardDialogOpen(false)}
         onSuccess={handleEditSuccess}
       />
     </div>
