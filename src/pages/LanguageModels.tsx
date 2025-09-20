@@ -23,7 +23,7 @@ interface LanguageModel {
 }
 
 const MODEL_VARIANTS: Record<string, string[]> = {
-  'Google Gemini': ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest', 'gemini-pro'],
+  'Google Gemini': ['gemini-1.5-flash-latest'],
 };
 
 const LanguageModels = () => {

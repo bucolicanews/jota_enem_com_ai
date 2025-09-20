@@ -31,7 +31,7 @@ interface LanguageModel {
 }
 
 const MODEL_VARIANTS: Record<string, string[]> = {
-  'Google Gemini': ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest', 'gemini-pro'],
+  'Google Gemini': ['gemini-1.5-flash-latest'],
   // Adicione outros provedores e seus modelos aqui, se necessário
 };
 
@@ -44,6 +44,7 @@ export const AdminStandardModels = () => {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testingModelId, setTestingModelId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false); // Adicionado: Estado para controlar o upload do avatar
 
   // Estados do formulário para adicionar/editar
   const [provider, setProvider] = useState('Google Gemini');
@@ -54,7 +55,6 @@ export const AdminStandardModels = () => {
   const [systemMessage, setSystemMessage] = useState('');
   const [description, setDescription] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Estados para o NOVO diálogo de edição de agentes padrão
@@ -311,6 +311,19 @@ export const AdminStandardModels = () => {
         <CardHeader>
           <CardTitle>Adicionar Novo Agente Professor</CardTitle>
           <CardDescription>Configure um novo modelo de IA para ser um agente professor padrão.</CardDescription>
+          <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-400 text-blue-800 rounded-md">
+            <p className="font-semibold mb-2">Como obter sua chave de API do Google Gemini:</p>
+            <p className="text-sm">
+              Para usar o Google Gemini gratuitamente, você pode gerar uma chave de API no Google AI Studio.
+              Visite <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">aistudio.google.com/app/apikey</a> para começar.
+            </p>
+            <p className="text-sm mt-2">
+              Se você precisar de mais opções de modelos de IA, considere
+              <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-800" onClick={() => navigate('/pricing')}>
+                atualizar seu plano
+              </Button> para PRO.
+            </p>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
