@@ -125,3 +125,8 @@ export const requireProfOnly=async(userId:string):Promise<boolean>=>{
 const permissions=await checkUserPermissions(userId);
 return permissions.name==='Prof';
 };
+
+export const requireProfOrAdmin = async (userId: string): Promise<boolean> => {
+  const permissions = await checkUserPermissions(userId);
+  return permissions.isProf || permissions.isAdmin;
+};
