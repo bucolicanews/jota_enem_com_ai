@@ -200,10 +200,14 @@ serve(async (req) => {
     }
 
     // Save user message
-    await serviceClient
+    const { error: userMsgError } = await serviceClient
       .from('ai_chat_messages')
       .insert({ conversation_id: currentConversationId, sender: 'user', content: userMessage });
-    console.log('User message saved.');
+    if (userMsgError) {
+        console.error('Error saving user message:', userMsgError);
+    } else {
+        console.log('User message saved to ai_chat_messages.');
+    }
 
     // Fetch previous messages for context
     const { data: previousMessages, error: messagesError } = await serviceClient
@@ -333,10 +337,14 @@ serve(async (req) => {
     }
 
     // Save AI response
-    await serviceClient
+    const { error: aiMsgError } = await serviceClient
       .from('ai_chat_messages')
       .insert({ conversation_id: currentConversationId, sender: 'ai', content: aiResponse });
-    console.log('AI response saved.');
+    if (aiMsgError) {
+        console.error('Error saving AI message:', aiMsgError);
+    } else {
+        console.log('AI response saved to ai_chat_messages.');
+    }
 
 
     console.log('Edge Function invoke-llm finished successfully.');

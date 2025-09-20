@@ -87,6 +87,7 @@ const AIChat = () => {
       console.error('Error fetching conversations:', error);
       showError('Erro ao carregar histórico de conversas.');
     } else {
+      console.log('Fetched conversations:', data); // NOVO LOG
       setConversations(data || []);
     }
     setLoadingConversations(false);
@@ -157,7 +158,7 @@ const AIChat = () => {
       }
       setModel(modelData);
       console.log('AIChat useEffect: Fetched modelData:', modelData);
-      console.log('AIChat useEffect: Model system_message:', modelData.system_message); // NOVO LOG
+      console.log('AIChat useEffect: Model system_message:', modelData.system_message);
 
 
       // Fetch conversations for this model
@@ -294,6 +295,12 @@ const AIChat = () => {
   };
 
   const handleNewChat = () => {
+    // Limpa o estado local antes de navegar para uma nova URL
+    setCurrentConversation(null);
+    setMessages([]);
+    setNewMessage('');
+    // A navegação com o mesmo modelId, mas sem conversationId, fará com que o useEffect
+    // do AIChatWrapper remonte o componente e o useEffect do AIChat inicie um novo chat.
     navigate(`/ai-chat/${modelId}`);
   };
 
