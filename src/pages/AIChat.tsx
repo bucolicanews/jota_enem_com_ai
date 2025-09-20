@@ -12,7 +12,7 @@ import type { User } from '@supabase/supabase-js';
 
 interface Message {
   id: string;
-  sender: 'user' | 'ai';
+  sender: 'user' | 'ai' | 'system'; // Adicionado 'system' para a mensagem inicial
   content: string;
   timestamp: string;
 }
@@ -22,6 +22,7 @@ interface LanguageModel {
   provider: string;
   model_name: string | null;
   model_variant: string | null;
+  system_message: string | null; // Adicionado system_message
 }
 
 const AIChat = () => {
@@ -83,10 +84,9 @@ const AIChat = () => {
 
       const { data: modelData, error: modelError } = await supabase
         .from('language_models')
-        .select('id, provider, model_name, model_variant')
+        .select('id, provider, model_name, model_variant, system_message') // Adicionado system_message
         .eq('id', modelId)
-        .eq('user_id', user.id) // Ensure user owns the model
-        .single();
+        .single(); // Removido .eq('user_id', user.id) pois a permissão é verificada na Edge Function
 
       if (modelError || !modelData) {
         console.error('Error fetching model:', modelError);
@@ -95,6 +95,17 @@ const AIChat = () => {
         return;
       }
       setModel(modelData);
+
+      // Adicionar a system_message como a primeira mensagem do chat
+      if (modelData.system_message) {
+        setMessages([{
+          id: 'system-intro',
+          sender: 'ai', // Considerar como uma mensagem da IA para o usuário
+          content: `Olá! Eu sou ${modelData.model_name || modelData.provider}. ${modelData.system_message}`,
+          timestamp: new Date().toISOString(),
+        }]);
+      }
+
       setLoading(false);
     };
     setupChat();
@@ -169,7 +180,7 @@ const AIChat = () => {
       <Card className="flex-1 flex flex-col overflow-hidden h-full">
         <CardHeader className="flex flex-row items-center justify-between p-4 border-b">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/language-models')} className="lg:hidden">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/standard-models')} className="lg:hidden">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <Bot className="h-6 w-6 text-blue-600" />
