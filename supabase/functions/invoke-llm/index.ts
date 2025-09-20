@@ -66,7 +66,7 @@ serve(async (req) => {
     }
     console.log('User authenticated:', user.id);
 
-    const { modelId, userMessage, conversationId: incomingConversationId, systemMessage: initialSystemMessage } = await req.json()
+    const { modelId, userMessage, conversationId: incomingConversationId, systemMessage: initialSystemMessage, selectedLanguage } = await req.json()
     if (!modelId || !userMessage) {
       console.log('Access denied: modelId e userMessage são obrigatórios.');
       return new Response(JSON.stringify({ error: 'modelId e userMessage são obrigatórios' }), {
@@ -232,10 +232,14 @@ serve(async (req) => {
 
     // Prepare messages array, including system_message if available
     const messagesForLLM: { role: string; content: string }[] = [];
-    if (system_message) {
-      messagesForLLM.push({ role: 'system', content: system_message });
-    } else if (initialSystemMessage) { // Fallback to initialSystemMessage from frontend if DB doesn't have it
-      messagesForLLM.push({ role: 'system', content: initialSystemMessage });
+    
+    let finalSystemMessage = system_message || initialSystemMessage || '';
+    if (selectedLanguage && selectedLanguage !== 'Português') { // Only add language instruction if not default
+      finalSystemMessage += `\n\nResponda sempre em ${selectedLanguage}.`;
+    }
+
+    if (finalSystemMessage) {
+      messagesForLLM.push({ role: 'system', content: finalSystemMessage.trim() });
     }
 
     // Add previous messages to context

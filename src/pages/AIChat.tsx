@@ -5,12 +5,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Loader2, Bot, User as UserIcon, ArrowLeft, PlusCircle, MessageSquareText } from 'lucide-react';
-import { showError } from '@/utils/toast';
+import { Send, Loader2, Bot, User as UserIcon, ArrowLeft, PlusCircle, MessageSquareText, Pencil } from 'lucide-react';
+import { showError, showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import type { User } from '@supabase/supabase-js';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 interface Profile {
   nome: string | null;
@@ -24,7 +35,7 @@ interface LanguageModel {
   model_name: string | null;
   model_variant: string | null;
   system_message: string | null;
-  avatar_url: string | null; // Adicionado avatar_url para o modelo
+  avatar_url: string | null;
 }
 
 interface Conversation {
@@ -61,6 +72,13 @@ const AIChat = () => {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
 
+  // Estados para edição de título
+  const [isEditTitleDialogOpen, setIsEditTitleDialogOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+
+  // Estado para seleção de idioma
+  const [selectedLanguage, setSelectedLanguage] = useState('Português'); // Default language
+
   const getInitials = (name: string | null | undefined) => {
     if (!name) return '..';
     const names = name.split(' ');
@@ -87,7 +105,6 @@ const AIChat = () => {
       console.error('Error fetching conversations:', error);
       showError('Erro ao carregar histórico de conversas.');
     } else {
-      console.log('Fetched conversations:', data); // NOVO LOG
       setConversations(data || []);
     }
     setLoadingConversations(false);
@@ -113,7 +130,6 @@ const AIChat = () => {
 
   useEffect(() => {
     const setupChat = async () => {
-      console.log('AIChat useEffect: Running setupChat for modelId:', modelId, 'conversationId:', conversationId);
       setLoading(true);
       const { data: { user: loggedInUser } } = await supabase.auth.getUser();
       if (!loggedInUser) {
@@ -122,7 +138,6 @@ const AIChat = () => {
       }
       setUser(loggedInUser);
 
-      // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
         .from('cliente')
         .select('nome, apelido, avatar_url')
@@ -137,7 +152,6 @@ const AIChat = () => {
       }
       setProfile(profileData);
 
-      // Fetch AI model details
       if (!modelId) {
         showError('ID do modelo de IA não fornecido.');
         navigate('/language-models');
@@ -157,17 +171,10 @@ const AIChat = () => {
         return;
       }
       setModel(modelData);
-      console.log('AIChat useEffect: Fetched modelData:', modelData);
-      console.log('AIChat useEffect: Model system_message:', modelData.system_message);
 
-
-      // Fetch conversations for this model
       await fetchConversations(loggedInUser.id, modelId);
-      console.log('AIChat useEffect: Fetched conversations.');
 
-      // Load specific conversation if ID is in URL
       if (conversationId) {
-        console.log('AIChat useEffect: Loading specific conversation:', conversationId);
         const { data: convData, error: convError } = await supabase
           .from('ai_conversations')
           .select('*')
@@ -179,31 +186,25 @@ const AIChat = () => {
         if (convError || !convData) {
           console.error('Error fetching specific conversation:', convError);
           showError('Conversa não encontrada ou acesso negado.');
-          navigate(`/ai-chat/${modelId}`); // Redirect to new chat for this model
+          navigate(`/ai-chat/${modelId}`);
           return;
         }
         setCurrentConversation(convData);
         await fetchMessages(convData.id);
-        console.log('AIChat useEffect: Current conversation set to:', convData);
       } else {
-        console.log('AIChat useEffect: Starting new chat (no conversationId).');
         setCurrentConversation(null);
         setMessages([]);
         if (modelData.system_message) {
-          console.log('AIChat useEffect: Adding system intro message.');
           setMessages([{
             id: 'system-intro',
             sender: 'ai',
             content: `Olá! Eu sou ${modelData.model_name || modelData.provider}. ${modelData.system_message}`,
             created_at: new Date().toISOString(),
-            conversation_id: 'temp', // Temporário, será atualizado ao criar a conversa
+            conversation_id: 'temp',
           }]);
-        } else {
-          console.log('AIChat useEffect: No system message found for intro.');
         }
       }
       setLoading(false);
-      console.log('AIChat useEffect: Setup complete.');
     };
     setupChat();
   }, [navigate, modelId, conversationId, fetchConversations, fetchMessages]);
@@ -219,7 +220,6 @@ const AIChat = () => {
     let currentConvId = currentConversation?.id;
     let isNewConversation = !currentConvId;
 
-    // Adiciona a mensagem do usuário localmente imediatamente
     const userMessage: AIChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -235,7 +235,8 @@ const AIChat = () => {
           modelId: model.id,
           userMessage: userMessageContent,
           conversationId: currentConvId,
-          systemMessage: model.system_message, // Passar system_message para a Edge Function
+          systemMessage: model.system_message,
+          selectedLanguage: selectedLanguage, // Passar o idioma selecionado
         },
       });
 
@@ -244,7 +245,6 @@ const AIChat = () => {
       const { aiResponse, newConversationId, newConversationTitle } = data;
 
       if (isNewConversation && newConversationId && newConversationTitle) {
-        // Update local state with new conversation details
         const newConv: Conversation = {
           id: newConversationId,
           user_id: user.id,
@@ -255,12 +255,11 @@ const AIChat = () => {
         };
         setCurrentConversation(newConv);
         setConversations((prev) => [newConv, ...prev]);
-        navigate(`/ai-chat/${modelId}/${newConversationId}`); // Update URL
-        currentConvId = newConversationId; // Update for subsequent messages
+        navigate(`/ai-chat/${modelId}/${newConversationId}`);
+        currentConvId = newConversationId;
       }
 
-      // Update user message with actual conversation_id if it was new
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg.id === userMessage.id && currentConvId ? { ...msg, conversation_id: currentConvId } : msg
       ));
 
@@ -269,11 +268,10 @@ const AIChat = () => {
         sender: 'ai',
         content: aiResponse || 'Não foi possível obter uma resposta do modelo de IA.',
         created_at: new Date().toISOString(),
-        conversation_id: currentConvId || 'temp', // Should be actual ID now
+        conversation_id: currentConvId || 'temp',
       };
       setMessages((prev) => [...prev, aiResponseMessage]);
 
-      // Refresh conversations to update 'updated_at' and potentially reorder
       if (currentConvId) {
         fetchConversations(user.id, model.id);
       }
@@ -295,17 +293,50 @@ const AIChat = () => {
   };
 
   const handleNewChat = () => {
-    // Limpa o estado local antes de navegar para uma nova URL
     setCurrentConversation(null);
     setMessages([]);
     setNewMessage('');
-    // A navegação com o mesmo modelId, mas sem conversationId, fará com que o useEffect
-    // do AIChatWrapper remonte o componente e o useEffect do AIChat inicie um novo chat.
     navigate(`/ai-chat/${modelId}`);
   };
 
   const handleSelectConversation = (convId: string) => {
     navigate(`/ai-chat/${modelId}/${convId}`);
+  };
+
+  const handleEditTitleClick = () => {
+    if (currentConversation) {
+      setEditTitle(currentConversation.title);
+      setIsEditTitleDialogOpen(true);
+    }
+  };
+
+  const handleSaveTitle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !currentConversation || !editTitle.trim()) {
+      showError('O título não pode ser vazio.');
+      return;
+    }
+
+    setSendingMessage(true); // Reusing sendingMessage for general submission state
+    try {
+      const { error } = await supabase
+        .from('ai_conversations')
+        .update({ title: editTitle.trim() })
+        .eq('id', currentConversation.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      showSuccess('Título da conversa atualizado!');
+      setIsEditTitleDialogOpen(false);
+      fetchConversations(user.id, modelId as string); // Refresh list
+      setCurrentConversation(prev => prev ? { ...prev, title: editTitle.trim() } : null); // Update current conversation title
+    } catch (error: any) {
+      showError(`Erro ao atualizar título: ${error.message}`);
+      console.error('Error updating conversation title:', error);
+    } finally {
+      setSendingMessage(false);
+    }
   };
 
   if (loading) {
@@ -342,7 +373,59 @@ const AIChat = () => {
             <AvatarImage src={aiAvatarUrl || ''} alt={aiDisplayName} />
             <AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback>
           </Avatar>
-          <CardTitle className="text-xl font-bold text-gray-800">{currentConversation?.title || aiDisplayName}</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-xl font-bold text-gray-800">{currentConversation?.title || aiDisplayName}</CardTitle>
+            {currentConversation && (
+              <Dialog open={isEditTitleDialogOpen} onOpenChange={setIsEditTitleDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleEditTitleClick}>
+                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Editar título</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Editar Título da Conversa</DialogTitle>
+                    <DialogDescription>
+                      Altere o título desta conversa para facilitar a organização.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSaveTitle} className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-conversation-title">Novo Título</Label>
+                      <Input
+                        id="edit-conversation-title"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        placeholder="Digite o novo título"
+                        required
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsEditTitleDialogOpen(false)}>Cancelar</Button>
+                      <Button type="submit" disabled={sendingMessage}>
+                        {sendingMessage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Salvar
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="language-select" className="sr-only">Idioma</Label>
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <SelectTrigger id="language-select" className="w-[140px]">
+              <SelectValue placeholder="Idioma" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Português">Português</SelectItem>
+              <SelectItem value="English">English</SelectItem>
+              <SelectItem value="Español">Español</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       <CardContent className="flex-1 p-4 space-y-4 overflow-y-auto h-full">
