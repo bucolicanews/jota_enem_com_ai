@@ -116,6 +116,14 @@ function App() {
             </ProtectedRoute>
           </MainLayout>
         } />
+        {/* Rota com conversationId */}
+        <Route path="/ai-chat/:modelId/:conversationId" element={ 
+          <MainLayout title="Chat com IA" useContainer={false}>
+            <ProtectedRoute requiredPermission="Pro">
+              <AIChat />
+            </ProtectedRoute>
+          </MainLayout>
+        } />
         {/* Nova rota para listar agentes professores padrão */}
         <Route path="/standard-models" element={
           <MainLayout title="Agentes Professores">

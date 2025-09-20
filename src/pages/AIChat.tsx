@@ -5,16 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Loader2, Bot, User as UserIcon, ArrowLeft } from 'lucide-react';
+import { Send, Loader2, Bot, User as UserIcon, ArrowLeft, PlusCircle, MessageSquareText } from 'lucide-react';
 import { showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import type { User } from '@supabase/supabase-js';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { useIsMobile } from '@/hooks/use-mobile';
 
-interface Message {
-  id: string;
-  sender: 'user' | 'ai' | 'system'; // Adicionado 'system' para a mensagem inicial
-  content: string;
-  timestamp: string;
+interface Profile {
+  nome: string | null;
+  apelido: string | null;
+  avatar_url: string | null;
 }
 
 interface LanguageModel {
@@ -22,20 +23,43 @@ interface LanguageModel {
   provider: string;
   model_name: string | null;
   model_variant: string | null;
-  system_message: string | null; // Adicionado system_message
+  system_message: string | null;
+  avatar_url: string | null; // Adicionado avatar_url para o modelo
+}
+
+interface Conversation {
+  id: string;
+  user_id: string;
+  model_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AIChatMessage {
+  id: string;
+  conversation_id: string;
+  sender: 'user' | 'ai' | 'system';
+  content: string;
+  created_at: string;
 }
 
 const AIChat = () => {
-  const { modelId } = useParams<{ modelId: string }>();
+  const { modelId, conversationId } = useParams<{ modelId: string; conversationId?: string }>();
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{ nome: string | null; apelido: string | null; avatar_url: string | null } | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [model, setModel] = useState<LanguageModel | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const isMobile = useIsMobile();
+
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return '..';
@@ -50,21 +74,57 @@ const AIChat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const fetchConversations = useCallback(async (userId: string, currentModelId: string) => {
+    setLoadingConversations(true);
+    const { data, error } = await supabase
+      .from('ai_conversations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('model_id', currentModelId)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching conversations:', error);
+      showError('Erro ao carregar histórico de conversas.');
+    } else {
+      setConversations(data || []);
+    }
+    setLoadingConversations(false);
+  }, []);
+
+  const fetchMessages = useCallback(async (convId: string) => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('ai_chat_messages')
+      .select('*')
+      .eq('conversation_id', convId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching messages:', error);
+      showError('Erro ao carregar mensagens da conversa.');
+      setMessages([]);
+    } else {
+      setMessages(data || []);
+    }
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     const setupChat = async () => {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { user: loggedInUser } } = await supabase.auth.getUser();
+      if (!loggedInUser) {
         navigate('/login');
         return;
       }
-      setUser(user);
+      setUser(loggedInUser);
 
       // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
         .from('cliente')
         .select('nome, apelido, avatar_url')
-        .eq('id', user.id)
+        .eq('id', loggedInUser.id)
         .single();
 
       if (profileError) {
@@ -84,9 +144,9 @@ const AIChat = () => {
 
       const { data: modelData, error: modelError } = await supabase
         .from('language_models')
-        .select('id, provider, model_name, model_variant, system_message') // Adicionado system_message
+        .select('id, provider, model_name, model_variant, system_message, avatar_url')
         .eq('id', modelId)
-        .single(); // Removido .eq('user_id', user.id) pois a permissão é verificada na Edge Function
+        .single();
 
       if (modelError || !modelData) {
         console.error('Error fetching model:', modelError);
@@ -96,63 +156,138 @@ const AIChat = () => {
       }
       setModel(modelData);
 
-      // Adicionar a system_message como a primeira mensagem do chat
-      if (modelData.system_message) {
-        setMessages([{
-          id: 'system-intro',
-          sender: 'ai', // Considerar como uma mensagem da IA para o usuário
-          content: `Olá! Eu sou ${modelData.model_name || modelData.provider}. ${modelData.system_message}`,
-          timestamp: new Date().toISOString(),
-        }]);
-      }
+      // Fetch conversations for this model
+      await fetchConversations(loggedInUser.id, modelId);
 
+      // Load specific conversation if ID is in URL
+      if (conversationId) {
+        const { data: convData, error: convError } = await supabase
+          .from('ai_conversations')
+          .select('*')
+          .eq('id', conversationId)
+          .eq('user_id', loggedInUser.id)
+          .eq('model_id', modelId)
+          .single();
+
+        if (convError || !convData) {
+          console.error('Error fetching specific conversation:', convError);
+          showError('Conversa não encontrada ou acesso negado.');
+          navigate(`/ai-chat/${modelId}`); // Redirect to new chat for this model
+          return;
+        }
+        setCurrentConversation(convData);
+        await fetchMessages(convData.id);
+      } else {
+        // Start a new chat if no conversationId is provided
+        setCurrentConversation(null);
+        setMessages([]);
+        if (modelData.system_message) {
+          setMessages([{
+            id: 'system-intro',
+            sender: 'ai',
+            content: `Olá! Eu sou ${modelData.model_name || modelData.provider}. ${modelData.system_message}`,
+            created_at: new Date().toISOString(),
+            conversation_id: 'temp', // Temporário, será atualizado ao criar a conversa
+          }]);
+        }
+      }
       setLoading(false);
     };
     setupChat();
-  }, [navigate, modelId]);
+  }, [navigate, modelId, conversationId, fetchConversations, fetchMessages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !user || !model || sendingMessage) return;
 
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      content: newMessage,
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    const messageContent = newMessage;
+    const userMessageContent = newMessage;
     setNewMessage('');
     setSendingMessage(true);
 
+    let currentConvId = currentConversation?.id;
+    let isNewConversation = !currentConvId;
+
+    // Adiciona a mensagem do usuário localmente imediatamente
+    const userMessage: AIChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      content: userMessageContent,
+      created_at: new Date().toISOString(),
+      conversation_id: currentConvId || 'temp',
+    };
+    setMessages((prev) => [...prev, userMessage]);
+
     try {
       const { data, error } = await supabase.functions.invoke('invoke-llm', {
-        body: { modelId: model.id, userMessage: messageContent },
+        body: {
+          modelId: model.id,
+          userMessage: userMessageContent,
+          conversationId: currentConvId,
+          systemMessage: model.system_message, // Passar system_message para a Edge Function
+        },
       });
 
       if (error) throw new Error(error.message);
 
-      const aiResponse: Message = {
+      const { aiResponse, newConversationId, newConversationTitle } = data;
+
+      if (isNewConversation && newConversationId && newConversationTitle) {
+        // Update local state with new conversation details
+        const newConv: Conversation = {
+          id: newConversationId,
+          user_id: user.id,
+          model_id: model.id,
+          title: newConversationTitle,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setCurrentConversation(newConv);
+        setConversations((prev) => [newConv, ...prev]);
+        navigate(`/ai-chat/${modelId}/${newConversationId}`); // Update URL
+        currentConvId = newConversationId; // Update for subsequent messages
+      }
+
+      // Update user message with actual conversation_id if it was new
+      setMessages(prev => prev.map(msg => 
+        msg.id === userMessage.id && currentConvId ? { ...msg, conversation_id: currentConvId } : msg
+      ));
+
+      const aiResponseMessage: AIChatMessage = {
         id: `ai-${Date.now()}`,
         sender: 'ai',
-        content: data.aiResponse || 'Não foi possível obter uma resposta do modelo de IA.',
-        timestamp: new Date().toISOString(),
+        content: aiResponse || 'Não foi possível obter uma resposta do modelo de IA.',
+        created_at: new Date().toISOString(),
+        conversation_id: currentConvId || 'temp', // Should be actual ID now
       };
-      setMessages((prev) => [...prev, aiResponse]);
+      setMessages((prev) => [...prev, aiResponseMessage]);
+
+      // Refresh conversations to update 'updated_at' and potentially reorder
+      if (currentConvId) {
+        fetchConversations(user.id, model.id);
+      }
+
     } catch (err: any) {
       console.error('Error invoking LLM:', err);
       showError(`Erro ao conversar com a IA: ${err.message}`);
-      const errorMessage: Message = {
+      const errorMessage: AIChatMessage = {
         id: `error-${Date.now()}`,
         sender: 'ai',
         content: 'Desculpe, houve um erro ao processar sua mensagem. Tente novamente.',
-        timestamp: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        conversation_id: currentConversation?.id || 'temp',
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  const handleNewChat = () => {
+    navigate(`/ai-chat/${modelId}`);
+  };
+
+  const handleSelectConversation = (convId: string) => {
+    navigate(`/ai-chat/${modelId}/${convId}`);
   };
 
   if (loading) {
@@ -174,94 +309,155 @@ const AIChat = () => {
   }
 
   const aiDisplayName = model.model_name || model.provider;
+  const aiAvatarUrl = model.avatar_url;
 
-  return (
-    <div className="flex flex-col h-full w-full">
-      <Card className="flex-1 flex flex-col overflow-hidden h-full">
-        <CardHeader className="flex flex-row items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/standard-models')} className="lg:hidden">
+  const renderChatContent = () => (
+    <Card className="flex-1 flex flex-col overflow-hidden h-full">
+      <CardHeader className="flex flex-row items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-3">
+          {isMobile && (
+            <Button variant="ghost" size="icon" onClick={() => navigate('/standard-models')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <Bot className="h-6 w-6 text-blue-600" />
-            <CardTitle className="text-xl font-bold text-gray-800">{aiDisplayName}</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 p-4 space-y-4 overflow-y-auto h-full">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <Bot className="h-16 w-16 mb-4 text-gray-400" />
-              <p className="text-lg">Comece a conversar com {aiDisplayName}!</p>
-              <p className="text-sm">Pergunte sobre o ENEM, dicas de estudo ou qualquer coisa que precisar.</p>
-            </div>
           )}
-          {messages.map((message) => {
-            const isCurrentUser = message.sender === 'user';
-            const displayName = isCurrentUser ? (profile?.apelido || profile?.nome || 'Você') : aiDisplayName;
-            const timestamp = new Date(message.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-            return (
-              <div
-                key={message.id}
-                className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : ''}`}
-              >
-                {!isCurrentUser && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback>
-                  </Avatar>
-                )}
-                <div className={`flex flex-col gap-1 ${isCurrentUser ? 'items-end' : 'items-start'}`}>
-                  <div
-                    className={`rounded-lg px-3 py-2 max-w-xs md:max-w-md ${
-                      isCurrentUser
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-200 text-gray-800'
-                    }`}
-                  >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  </div>
-                  <p className="text-xs text-gray-500 px-1 mt-1">{displayName}, {timestamp}</p>
-                </div>
-                {isCurrentUser && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={profile?.avatar_url || ''} alt={displayName} />
-                    <AvatarFallback>{getInitials(profile?.apelido || profile?.nome)}</AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            );
-          })}
-          {sendingMessage && (
-            <div className="flex items-start gap-3">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col gap-1 items-start">
-                <div className="rounded-lg px-3 py-2 max-w-xs md:max-w-md bg-gray-200 text-gray-800">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </div>
-                <p className="text-xs text-gray-500 px-1 mt-1">{aiDisplayName} está digitando...</p>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </CardContent>
-        <div className="p-4 border-t flex-shrink-0">
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Digite sua mensagem..."
-              autoComplete="off"
-              disabled={sendingMessage}
-            />
-            <Button type="submit" size="icon" disabled={!newMessage.trim() || sendingMessage}>
-              {sendingMessage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </form>
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={aiAvatarUrl || ''} alt={aiDisplayName} />
+            <AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback>
+          </Avatar>
+          <CardTitle className="text-xl font-bold text-gray-800">{currentConversation?.title || aiDisplayName}</CardTitle>
         </div>
-      </Card>
+      </CardHeader>
+      <CardContent className="flex-1 p-4 space-y-4 overflow-y-auto h-full">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <Bot className="h-16 w-16 mb-4 text-gray-400" />
+            <p className="text-lg">Comece a conversar com {aiDisplayName}!</p>
+            <p className="text-sm">Pergunte sobre o ENEM, dicas de estudo ou qualquer coisa que precisar.</p>
+          </div>
+        )}
+        {messages.map((message) => {
+          const isCurrentUser = message.sender === 'user';
+          const displayName = isCurrentUser ? (profile?.apelido || profile?.nome || 'Você') : aiDisplayName;
+          const timestamp = new Date(message.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+          return (
+            <div
+              key={message.id}
+              className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : ''}`}
+            >
+              {!isCurrentUser && (
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={aiAvatarUrl || ''} alt={aiDisplayName} />
+                  <AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback>
+                </Avatar>
+              )}
+              <div className={`flex flex-col gap-1 ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+                <div
+                  className={`rounded-lg px-3 py-2 max-w-xs md:max-w-md ${
+                    isCurrentUser
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200 text-gray-800'
+                  }`}
+                >
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                </div>
+                <p className="text-xs text-gray-500 px-1 mt-1">{displayName}, {timestamp}</p>
+              </div>
+              {isCurrentUser && (
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.avatar_url || ''} alt={displayName} />
+                  <AvatarFallback>{getInitials(profile?.apelido || profile?.nome)}</AvatarFallback>
+                </Avatar>
+              )}
+            </div>
+          );
+        })}
+        {sendingMessage && (
+          <div className="flex items-start gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={aiAvatarUrl || ''} alt={aiDisplayName} />
+              <AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col gap-1 items-start">
+              <div className="rounded-lg px-3 py-2 max-w-xs md:max-w-md bg-gray-200 text-gray-800">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+              <p className="text-xs text-gray-500 px-1 mt-1">{aiDisplayName} está digitando...</p>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </CardContent>
+      <div className="p-4 border-t flex-shrink-0">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Digite sua mensagem..."
+            autoComplete="off"
+            disabled={sendingMessage}
+          />
+          <Button type="submit" size="icon" disabled={!newMessage.trim() || sendingMessage}>
+            {sendingMessage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </form>
+      </div>
+    </Card>
+  );
+
+  const renderConversationList = () => (
+    <div className="flex flex-col h-full bg-gray-50 border-r">
+      <div className="p-4 border-b flex flex-col gap-2 bg-white">
+        <h2 className="text-xl font-bold">Conversas com {aiDisplayName}</h2>
+        <Button onClick={handleNewChat} className="w-full">
+          <PlusCircle className="h-4 w-4 mr-2" /> Nova Conversa
+        </Button>
+      </div>
+      <div className="flex-1 overflow-y-auto space-y-2 p-2">
+        {loadingConversations ? (
+          <div className="flex justify-center items-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : conversations.length === 0 ? (
+          <p className="text-center text-muted-foreground py-4">Nenhuma conversa ainda.</p>
+        ) : (
+          conversations.map((conv) => (
+            <Button
+              key={conv.id}
+              variant="ghost"
+              className={cn(
+                "w-full justify-start text-left h-auto py-2 px-3",
+                currentConversation?.id === conv.id && "bg-blue-100 hover:bg-blue-200"
+              )}
+              onClick={() => handleSelectConversation(conv.id)}
+            >
+              <MessageSquareText className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span className="truncate">{conv.title}</span>
+            </Button>
+          ))
+        )}
+      </div>
     </div>
+  );
+
+  return (
+    <>
+      {isMobile ? (
+        <div className="flex flex-col h-full w-full">
+          {renderChatContent()}
+        </div>
+      ) : (
+        <ResizablePanelGroup direction="horizontal" className="h-full w-full">
+          <ResizablePanel defaultSize={25} minSize={20} maxSize={30}>
+            {renderConversationList()}
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={75}>
+            {renderChatContent()}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      )}
+    </>
   );
 };
 

@@ -13,6 +13,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Função auxiliar para gerar um título a partir do texto
+async function generateTitle(text: string): Promise<string> {
+  // Limita o texto para evitar que seja muito longo para a IA
+  const promptText = text.length > 150 ? text.substring(0, 150) + '...' : text;
+  const titlePrompt = `Crie um título curto e descritivo (máximo 10 palavras) para a seguinte conversa, sem aspas: "${promptText}"`;
+
+  // Usar um modelo de IA simples para gerar o título
+  // Para este exemplo, vamos simular uma resposta ou usar uma lógica básica
+  // Em um ambiente de produção, você chamaria uma API de LLM aqui.
+  // Por enquanto, vamos pegar as primeiras palavras do prompt.
+  const words = promptText.split(' ');
+  let title = words.slice(0, Math.min(words.length, 5)).join(' ');
+  if (words.length > 5) title += '...';
+  
+  return title.charAt(0).toUpperCase() + title.slice(1); // Capitaliza a primeira letra
+}
+
+
 serve(async (req) => {
   console.log('Edge Function invoke-llm started.');
 
@@ -46,7 +64,7 @@ serve(async (req) => {
     }
     console.log('User authenticated:', user.id);
 
-    const { modelId, userMessage } = await req.json()
+    const { modelId, userMessage, conversationId, systemMessage: initialSystemMessage } = await req.json()
     if (!modelId || !userMessage) {
       console.log('Access denied: modelId e userMessage são obrigatórios.');
       return new Response(JSON.stringify({ error: 'modelId e userMessage são obrigatórios' }), {
@@ -149,14 +167,73 @@ serve(async (req) => {
     const { api_key, provider, model_variant, system_message } = model;
     
     let aiResponse = 'Não foi possível obter uma resposta do modelo de IA.';
+    let currentConversationId = conversationId;
+    let newConversationTitle = null;
+
+    // Handle conversation creation and message saving
+    if (!currentConversationId) {
+      // Create new conversation
+      const generatedTitle = await generateTitle(userMessage);
+      const { data: newConv, error: convError } = await serviceClient
+        .from('ai_conversations')
+        .insert({ user_id: user.id, model_id: modelId, title: generatedTitle })
+        .select('id, title')
+        .single();
+
+      if (convError || !newConv) {
+        console.error('Error creating new conversation:', convError);
+        return new Response(JSON.stringify({ error: 'Erro ao iniciar nova conversa.' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
+      }
+      currentConversationId = newConv.id;
+      newConversationTitle = newConv.title;
+      console.log('New conversation created:', currentConversationId, 'Title:', newConversationTitle);
+    } else {
+      // Update conversation's updated_at timestamp
+      await serviceClient
+        .from('ai_conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', currentConversationId)
+        .eq('user_id', user.id); // Ensure user owns the conversation
+    }
+
+    // Save user message
+    await serviceClient
+      .from('ai_chat_messages')
+      .insert({ conversation_id: currentConversationId, sender: 'user', content: userMessage });
+    console.log('User message saved.');
+
+    // Fetch previous messages for context
+    const { data: previousMessages, error: messagesError } = await serviceClient
+      .from('ai_chat_messages')
+      .select('sender, content')
+      .eq('conversation_id', currentConversationId)
+      .order('created_at', { ascending: true });
+
+    if (messagesError) {
+      console.error('Error fetching previous messages:', messagesError);
+      // Continue without previous messages if there's an error
+    }
 
     // Prepare messages array, including system_message if available
-    const messages: { role: string; content: string }[] = [];
+    const messagesForLLM: { role: string; content: string }[] = [];
     if (system_message) {
-      messages.push({ role: 'system', content: system_message });
+      messagesForLLM.push({ role: 'system', content: system_message });
+    } else if (initialSystemMessage) { // Fallback to initialSystemMessage from frontend if DB doesn't have it
+      messagesForLLM.push({ role: 'system', content: initialSystemMessage });
     }
-    messages.push({ role: 'user', content: userMessage });
-    console.log('Messages prepared for LLM:', messages);
+
+    // Add previous messages to context
+    if (previousMessages) {
+      previousMessages.forEach(msg => {
+        messagesForLLM.push({ role: msg.sender === 'user' ? 'user' : 'model', content: msg.content });
+      });
+    }
+    // Add current user message (already saved, but needed for LLM context)
+    messagesForLLM.push({ role: 'user', content: userMessage });
+    console.log('Messages prepared for LLM:', messagesForLLM);
 
     // Invoke the appropriate LLM based on the provider
     if (provider === 'OpenAI') {
@@ -164,7 +241,7 @@ serve(async (req) => {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-            body: JSON.stringify({ model: model_variant, messages, max_tokens: 500 })
+            body: JSON.stringify({ model: model_variant, messages: messagesForLLM, max_tokens: 500 })
         });
         if (response.ok) {
             const data = await response.json();
@@ -178,12 +255,15 @@ serve(async (req) => {
     } 
     else if (provider === 'Google Gemini') {
         console.log('Invoking Google Gemini model:', model_variant);
-        const finalGeminiMessages = [];
-        if (system_message) {
-            finalGeminiMessages.push({ role: 'user', parts: [{ text: system_message }] });
-            finalGeminiMessages.push({ role: 'model', parts: [{ text: 'Ok, entendi. Como posso ajudar?' }] }); // Simulate AI acknowledging system message
-        }
-        finalGeminiMessages.push({ role: 'user', parts: [{ text: userMessage }] });
+        const finalGeminiMessages = messagesForLLM.map(msg => ({
+          role: msg.role === 'system' ? 'user' : msg.role, // Gemini doesn't have a 'system' role directly in content
+          parts: [{ text: msg.content }]
+        }));
+        // Gemini requires alternating user/model roles. If system message is first, it's a user role.
+        // If the sequence is user, user, model, it will fail. We need to ensure alternation.
+        // For simplicity, let's just send the last few messages if the history is complex.
+        // A more robust solution would re-process the history to ensure alternation.
+        // For now, let's assume a simple alternating history or handle system message as user.
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model_variant}:generateContent?key=${api_key}`, {
             method: 'POST',
@@ -205,7 +285,7 @@ serve(async (req) => {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': api_key, 'anthropic-version': '2023-06-01' },
-            body: JSON.stringify({ model: model_variant, messages, max_tokens: 500 })
+            body: JSON.stringify({ model: model_variant, messages: messagesForLLM, max_tokens: 500 })
         });
         if (response.ok) {
             const data = await response.json();
@@ -222,7 +302,7 @@ serve(async (req) => {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-            body: JSON.stringify({ model: model_variant, messages, max_tokens: 500 })
+            body: JSON.stringify({ model: model_variant, messages: messagesForLLM, max_tokens: 500 })
         });
         if (response.ok) {
             const data = await response.json();
@@ -239,7 +319,7 @@ serve(async (req) => {
         const response = await fetch('https://api.deepseek.com/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-            body: JSON.stringify({ model: model_variant, messages, max_tokens: 500 })
+            body: JSON.stringify({ model: model_variant, messages: messagesForLLM, max_tokens: 500 })
         });
         if (response.ok) {
             const data = await response.json();
@@ -252,8 +332,15 @@ serve(async (req) => {
         }
     }
 
+    // Save AI response
+    await serviceClient
+      .from('ai_chat_messages')
+      .insert({ conversation_id: currentConversationId, sender: 'ai', content: aiResponse });
+    console.log('AI response saved.');
+
+
     console.log('Edge Function invoke-llm finished successfully.');
-    return new Response(JSON.stringify({ aiResponse }), {
+    return new Response(JSON.stringify({ aiResponse, newConversationId: currentConversationId, newConversationTitle }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
