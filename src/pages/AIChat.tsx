@@ -112,6 +112,7 @@ const AIChat = () => {
 
   useEffect(() => {
     const setupChat = async () => {
+      console.log('AIChat useEffect: Running setupChat for modelId:', modelId, 'conversationId:', conversationId);
       setLoading(true);
       const { data: { user: loggedInUser } } = await supabase.auth.getUser();
       if (!loggedInUser) {
@@ -155,12 +156,16 @@ const AIChat = () => {
         return;
       }
       setModel(modelData);
+      console.log('AIChat useEffect: Fetched modelData:', modelData);
+
 
       // Fetch conversations for this model
       await fetchConversations(loggedInUser.id, modelId);
+      console.log('AIChat useEffect: Fetched conversations.');
 
       // Load specific conversation if ID is in URL
       if (conversationId) {
+        console.log('AIChat useEffect: Loading specific conversation:', conversationId);
         const { data: convData, error: convError } = await supabase
           .from('ai_conversations')
           .select('*')
@@ -177,11 +182,13 @@ const AIChat = () => {
         }
         setCurrentConversation(convData);
         await fetchMessages(convData.id);
+        console.log('AIChat useEffect: Current conversation set to:', convData);
       } else {
-        // Start a new chat if no conversationId is provided
+        console.log('AIChat useEffect: Starting new chat (no conversationId).');
         setCurrentConversation(null);
         setMessages([]);
         if (modelData.system_message) {
+          console.log('AIChat useEffect: Adding system intro message.');
           setMessages([{
             id: 'system-intro',
             sender: 'ai',
@@ -189,9 +196,12 @@ const AIChat = () => {
             created_at: new Date().toISOString(),
             conversation_id: 'temp', // Temporário, será atualizado ao criar a conversa
           }]);
+        } else {
+          console.log('AIChat useEffect: No system message found for intro.');
         }
       }
       setLoading(false);
+      console.log('AIChat useEffect: Setup complete.');
     };
     setupChat();
   }, [navigate, modelId, conversationId, fetchConversations, fetchMessages]);
