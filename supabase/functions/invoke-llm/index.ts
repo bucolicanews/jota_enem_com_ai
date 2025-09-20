@@ -17,11 +17,6 @@ const corsHeaders = {
 async function generateTitle(text: string): Promise<string> {
   // Limita o texto para evitar que seja muito longo para a IA
   const promptText = text.length > 150 ? text.substring(0, 150) + '...' : text;
-  const titlePrompt = `Crie um título curto e descritivo (máximo 10 palavras) para a seguinte conversa, sem aspas: "${promptText}"`;
-
-  // Usar um modelo de IA simples para gerar o título
-  // Para este exemplo, vamos simular uma resposta ou usar uma lógica básica
-  // Em um ambiente de produção, você chamaria uma API de LLM aqui.
   // Por enquanto, vamos pegar as primeiras palavras do prompt.
   const words = promptText.split(' ');
   let title = words.slice(0, Math.min(words.length, 5)).join(' ');
@@ -38,6 +33,13 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // Declarar variáveis em um escopo mais alto para que sejam acessíveis no bloco catch externo
+  let aiResponse = 'Não foi possível obter uma resposta do modelo de IA.';
+  let currentConversationId: string | undefined = undefined;
+  let newConversationTitle: string | null = null;
+  let modelProvider: string = 'unknown'; // Para logs de erro mais úteis
+  let serviceClient: any; // Declarar aqui para garantir que esteja sempre em escopo para o log de erro, se necessário
 
   try {
     // Create a Supabase client with the user's auth token
@@ -64,7 +66,7 @@ serve(async (req) => {
     }
     console.log('User authenticated:', user.id);
 
-    const { modelId, userMessage, conversationId, systemMessage: initialSystemMessage } = await req.json()
+    const { modelId, userMessage, conversationId: incomingConversationId, systemMessage: initialSystemMessage } = await req.json()
     if (!modelId || !userMessage) {
       console.log('Access denied: modelId e userMessage são obrigatórios.');
       return new Response(JSON.stringify({ error: 'modelId e userMessage são obrigatórios' }), {
@@ -76,7 +78,7 @@ serve(async (req) => {
 
     // Create a service role client to securely fetch the API key and user permissions
     // @ts-ignore: Deno is available in runtime
-    const serviceClient = createClient(
+    serviceClient = createClient( // Atribuir à variável de escopo mais alto
         // @ts-ignore: Deno is available in runtime
         Deno.env.get('SUPABASE_URL') ?? '',
         // @ts-ignore: Deno is available in runtime
@@ -165,15 +167,15 @@ serve(async (req) => {
     console.log('Access granted to AI model.');
 
     const { api_key, provider, model_variant, system_message } = model;
+    modelProvider = provider; // Atribuir à variável de escopo mais alto
     
-    let aiResponse = 'Não foi possível obter uma resposta do modelo de IA.';
-    let currentConversationId = conversationId;
-    let newConversationTitle = null;
+    currentConversationId = incomingConversationId; // Atribuir à variável de escopo mais alto
 
     // Handle conversation creation and message saving
     if (!currentConversationId) {
       // Create new conversation
       const generatedTitle = await generateTitle(userMessage);
+      console.log('Attempting to create new conversation with title:', generatedTitle);
       const { data: newConv, error: convError } = await serviceClient
         .from('ai_conversations')
         .insert({ user_id: user.id, model_id: modelId, title: generatedTitle })
@@ -189,17 +191,24 @@ serve(async (req) => {
       }
       currentConversationId = newConv.id;
       newConversationTitle = newConv.title;
-      console.log('New conversation created:', currentConversationId, 'Title:', newConversationTitle);
+      console.log('New conversation created successfully. ID:', currentConversationId, 'Title:', newConversationTitle);
     } else {
       // Update conversation's updated_at timestamp
-      await serviceClient
+      console.log('Updating conversation timestamp for conversationId:', currentConversationId);
+      const { error: updateConvError } = await serviceClient
         .from('ai_conversations')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', currentConversationId)
         .eq('user_id', user.id); // Ensure user owns the conversation
+      if (updateConvError) {
+        console.error('Error updating conversation timestamp:', updateConvError);
+      } else {
+        console.log('Conversation timestamp updated for conversationId:', currentConversationId);
+      }
     }
 
     // Save user message
+    console.log('Attempting to save user message for conversationId:', currentConversationId);
     const { error: userMsgError } = await serviceClient
       .from('ai_chat_messages')
       .insert({ conversation_id: currentConversationId, sender: 'user', content: userMessage });
@@ -240,6 +249,7 @@ serve(async (req) => {
     console.log('Messages prepared for LLM:', messagesForLLM);
 
     // Invoke the appropriate LLM based on the provider
+    // Removido o try...catch aninhado. Erros de fetch serão capturados pelo catch externo.
     if (provider === 'OpenAI') {
         console.log('Invoking OpenAI model:', model_variant);
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -254,7 +264,7 @@ serve(async (req) => {
         } else {
             const errorData = await response.json();
             console.error('OpenAI API error:', errorData);
-            aiResponse = `Erro na conexão com OpenAI: ${errorData.error?.message || 'Erro desconhecido'}`;
+            aiResponse = `Falha na conexão com OpenAI: ${errorData.error?.message || 'Erro desconhecido'}`;
         }
     } 
     else if (provider === 'Google Gemini') {
@@ -263,12 +273,6 @@ serve(async (req) => {
           role: msg.role === 'system' ? 'user' : msg.role, // Gemini doesn't have a 'system' role directly in content
           parts: [{ text: msg.content }]
         }));
-        // Gemini requires alternating user/model roles. If system message is first, it's a user role.
-        // If the sequence is user, user, model, it will fail. We need to ensure alternation.
-        // For simplicity, let's just send the last few messages if the history is complex.
-        // A more robust solution would re-process the history to ensure alternation.
-        // For now, let's assume a simple alternating history or handle system message as user.
-
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model_variant}:generateContent?key=${api_key}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -332,11 +336,17 @@ serve(async (req) => {
         } else {
             const errorData = await response.json();
             console.error('DeepSeek API error:', errorData);
-            aiResponse = `Erro na conexão com DeepSeek: ${errorData.error?.message || 'Erro desconhecido'}`;
+            aiResponse = `Falha na conexão com DeepSeek: ${errorData.error?.message || 'Erro desconhecido'}`;
         }
     }
+    else {
+      aiResponse = `Provedor de IA '${provider}' não suportado.`;
+      console.error(`Provedor de IA '${provider}' não suportado.`);
+    }
+
 
     // Save AI response
+    console.log('Attempting to save AI message for conversationId:', currentConversationId);
     const { error: aiMsgError } = await serviceClient
       .from('ai_chat_messages')
       .insert({ conversation_id: currentConversationId, sender: 'ai', content: aiResponse });
@@ -353,7 +363,7 @@ serve(async (req) => {
       status: 200,
     })
   } catch (error: any) {
-    console.error('Erro interno na função Edge invoke-llm:', error);
+    console.error(`Erro interno na função Edge invoke-llm (provedor: ${modelProvider}):`, error);
     return new Response(JSON.stringify({ error: `Erro interno: ${error.message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
