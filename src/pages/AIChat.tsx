@@ -43,6 +43,7 @@ interface Conversation {
   user_id: string;
   model_id: string;
   title: string;
+  language: string; // Adicionado
   created_at: string;
   updated_at: string;
 }
@@ -190,10 +191,12 @@ const AIChat = () => {
           return;
         }
         setCurrentConversation(convData);
+        setSelectedLanguage(convData.language || 'Português'); // Carregar idioma salvo
         await fetchMessages(convData.id);
       } else {
         setCurrentConversation(null);
         setMessages([]);
+        setSelectedLanguage('Português'); // Resetar para o padrão em nova conversa
         if (modelData.system_message) {
           setMessages([{
             id: 'system-intro',
@@ -208,6 +211,29 @@ const AIChat = () => {
     };
     setupChat();
   }, [navigate, modelId, conversationId, fetchConversations, fetchMessages]);
+
+  // Efeito para atualizar o idioma da conversa no DB quando selectedLanguage muda
+  useEffect(() => {
+    const updateConversationLanguage = async () => {
+      if (currentConversation && user && selectedLanguage !== currentConversation.language) {
+        const { error } = await supabase
+          .from('ai_conversations')
+          .update({ language: selectedLanguage })
+          .eq('id', currentConversation.id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Error updating conversation language:', error);
+          showError('Erro ao salvar o idioma da conversa.');
+        } else {
+          setCurrentConversation(prev => prev ? { ...prev, language: selectedLanguage } : null);
+          showSuccess('Idioma da conversa atualizado!');
+        }
+      }
+    };
+    updateConversationLanguage();
+  }, [selectedLanguage, currentConversation, user]);
+
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,6 +276,7 @@ const AIChat = () => {
           user_id: user.id,
           model_id: model.id,
           title: newConversationTitle,
+          language: selectedLanguage, // Salvar o idioma na nova conversa
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -296,6 +323,7 @@ const AIChat = () => {
     setCurrentConversation(null);
     setMessages([]);
     setNewMessage('');
+    setSelectedLanguage('Português'); // Resetar para o padrão ao iniciar nova conversa
     navigate(`/ai-chat/${modelId}`);
   };
 
