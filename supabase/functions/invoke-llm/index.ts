@@ -291,7 +291,12 @@ serve(async (req) => {
         } else {
             const errorData = await response.json();
             console.error('Gemini API error:', errorData);
-            aiResponse = `Erro na conexão com Gemini: ${errorData.error?.message || 'Erro desconhecido'}`;
+            const errorMessage = errorData.error?.message || 'Erro desconhecido';
+            if (errorMessage.includes('Quota exceeded')) {
+                aiResponse = 'Desculpe, o limite de uso da IA (Google Gemini) foi atingido. Por favor, tente novamente mais tarde ou considere verificar seu plano de API.';
+            } else {
+                aiResponse = `Erro na conexão com Gemini: ${errorMessage}`;
+            }
         }
     } 
     else if (provider === 'Anthropic') {
