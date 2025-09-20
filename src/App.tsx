@@ -113,19 +113,19 @@ function App() {
           </MainLayout>
         } />
         
-        {/* Nova rota para o chat com IA */}
+        {/* Nova rota para o chat com IA (AGORA ACESSÍVEL A TODOS) */}
         <Route path="/ai-chat/:modelId" element={
           <MainLayout title="Chat com IA" useContainer={false}>
-            <ProtectedRoute requiredPermission="Pro">
-              <AIChatWrapper /> {/* Usar o wrapper aqui */}
+            <ProtectedRoute> {/* Acesso padrão (Free) */}
+              <AIChatWrapper />
             </ProtectedRoute>
           </MainLayout>
         } />
-        {/* Rota com conversationId */}
+        {/* Rota com conversationId (AGORA ACESSÍVEL A TODOS) */}
         <Route path="/ai-chat/:modelId/:conversationId" element={ 
           <MainLayout title="Chat com IA" useContainer={false}>
-            <ProtectedRoute requiredPermission="Pro">
-              <AIChatWrapper /> {/* Usar o wrapper aqui */}
+            <ProtectedRoute> {/* Acesso padrão (Free) */}
+              <AIChatWrapper />
             </ProtectedRoute>
           </MainLayout>
         } />
