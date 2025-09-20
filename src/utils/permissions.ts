@@ -23,6 +23,8 @@ isFree:boolean;
 */
 export const getPermissaoUsuario=async(userId:string):Promise<string>=>{
 try{
+// Adicionado log para depurar o ID do usuário
+console.log('DEBUG: Buscando permissões para o userId:', userId);
 //Passo1:Buscaropermissao_iddousuário
 const{data:clienteData,error:clienteError}=await supabase
 .from('cliente')
