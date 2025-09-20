@@ -57,21 +57,6 @@ const Dashboard = () => {
           </Card>
         </Link>
 
-        {/* Card Chat da Turma */}
-        <Link to="/chat" className="transform hover:-translate-y-1 transition-transform duration-300">
-          <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-semibold">Chat da Turma</CardTitle>
-              <MessageSquare className="h-5 w-5 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Converse com outros alunos em tempo real.
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-        
         {/* Card Meu Perfil */}
         <Link to="/perfil" className="transform hover:-translate-y-1 transition-transform duration-300">
           <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
@@ -126,6 +111,21 @@ const Dashboard = () => {
         {/* ========================================= */}
         {userPermissions?.isPro && (
           <>
+            {/* Card Chat da Turma */}
+            <Link to="/chat" className="transform hover:-translate-y-1 transition-transform duration-300">
+              <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base font-semibold">Chat da Turma</CardTitle>
+                  <MessageSquare className="h-5 w-5 text-blue-500" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Converse com outros alunos em tempo real.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
             {/* Card Fórum PRO */}
             <Link to="/forum" className="transform hover:-translate-y-1 transition-transform duration-300">
               <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
