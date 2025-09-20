@@ -9,6 +9,7 @@ import Profile from './pages/Profile';
 import Documents from './pages/Documents';
 import LanguageModels from './pages/LanguageModels';
 import AIChat from './pages/AIChat'; // Importe a nova página de chat
+import AIChatWrapper from './components/AIChatWrapper'; // Importar o wrapper
 import Chat from './pages/Chat';
 import Forum from './pages/Forum';
 import News from './pages/News';
@@ -112,7 +113,7 @@ function App() {
         <Route path="/ai-chat/:modelId" element={
           <MainLayout title="Chat com IA" useContainer={false}>
             <ProtectedRoute requiredPermission="Pro">
-              <AIChat />
+              <AIChatWrapper /> {/* Usar o wrapper aqui */}
             </ProtectedRoute>
           </MainLayout>
         } />
@@ -120,7 +121,7 @@ function App() {
         <Route path="/ai-chat/:modelId/:conversationId" element={ 
           <MainLayout title="Chat com IA" useContainer={false}>
             <ProtectedRoute requiredPermission="Pro">
-              <AIChat />
+              <AIChatWrapper /> {/* Usar o wrapper aqui */}
             </ProtectedRoute>
           </MainLayout>
         } />
