@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { UserNav } from './UserNav';
-import { ArrowLeft, Home, User, MessageSquare, BookOpen, Newspaper, Settings } from 'lucide-react';
+import { ArrowLeft, Home, User, MessageSquare, BookOpen, Newspaper, Settings, KeyRound } from 'lucide-react';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -41,13 +41,10 @@ export const MainLayout = ({ children, title, showBackButton = true, actions, us
                 <Newspaper className="h-4 w-4" />
                 Notícias
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/forum')} className="gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Fórum
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/chat')} className="gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Chat
+              {/* Removido Fórum e Chat */}
+              <Button variant="ghost" size="sm" onClick={() => navigate('/language-models')} className="gap-2">
+                <KeyRound className="h-4 w-4" />
+                Minhas Chaves de IA
               </Button>
             </nav>
           </div>
