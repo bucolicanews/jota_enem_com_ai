@@ -157,6 +157,7 @@ const AIChat = () => {
       }
       setModel(modelData);
       console.log('AIChat useEffect: Fetched modelData:', modelData);
+      console.log('AIChat useEffect: Model system_message:', modelData.system_message); // NOVO LOG
 
 
       // Fetch conversations for this model
