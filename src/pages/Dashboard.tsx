@@ -87,6 +87,36 @@ const Dashboard = () => {
           </Card>
         </Link>
         
+        {/* Card Banco de Questões (AGORA PARA TODOS) */}
+        <Link to="/question-bank" className="transform hover:-translate-y-1 transition-transform duration-300">
+          <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base font-semibold">Banco de Questões</CardTitle>
+              <BookCopy className="h-5 w-5 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Explore e selecione questões para seus estudos.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* Card Minhas Provas (AGORA PARA TODOS) */}
+        <Link to="/user-tests" className="transform hover:-translate-y-1 transition-transform duration-300">
+          <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base font-semibold">Minhas Provas</CardTitle>
+              <FileText className="h-5 w-5 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Acesse e responda suas provas geradas.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
         {/* ========================================= */}
         {/* === Cards Específicos para Free e superiores === */}
         {/* ========================================= */}
@@ -217,6 +247,20 @@ const Dashboard = () => {
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
                     Gerenciar seus vídeos e notícias do ENEM.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+            {/* Card Gerenciar Banco de Questões (Prof/Admin) */}
+            <Link to="/admin/questions" className="transform hover:-translate-y-1 transition-transform duration-300">
+              <Card className="bg-purple-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base font-semibold">Gerenciar Banco de Questões</CardTitle>
+                  <GraduationCap className="h-5 w-5 text-indigo-600" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Adicione e edite questões para o banco de dados.
                   </p>
                 </CardContent>
               </Card>

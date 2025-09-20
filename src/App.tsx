@@ -25,6 +25,10 @@ import NotFound from './pages/NotFound';
 import ForumFree from './pages/ForumFree';
 import { AdminStandardModels } from './pages/AdminStandardModels'; // Importar a nova página
 import StandardModelsList from './pages/StandardModelsList'; // Importar a nova página
+import AdminQuestions from './pages/AdminQuestions'; // Importar a nova página de administração de questões
+import QuestionBank from './pages/QuestionBank'; // Importar a nova página de banco de questões
+import TakeTest from './pages/TakeTest'; // Importar a nova página de realização de prova
+import UserTests from './pages/UserTests'; // Importar a nova página de lista de provas do usuário
 
 function App() {
   return (
@@ -138,6 +142,29 @@ function App() {
           </MainLayout>
         } />
         
+        {/* Rotas para o Banco de Questões */}
+        <Route path="/question-bank" element={
+          <MainLayout title="Banco de Questões">
+            <ProtectedRoute> {/* Acesso para todos, funcionalidades variam por permissão */}
+              <QuestionBank />
+            </ProtectedRoute>
+          </MainLayout>
+        } />
+        <Route path="/take-test/:testId" element={
+          <MainLayout title="Realizar Prova">
+            <ProtectedRoute> {/* Acesso para todos que geraram a prova */}
+              <TakeTest />
+            </ProtectedRoute>
+          </MainLayout>
+        } />
+        <Route path="/user-tests" element={
+          <MainLayout title="Minhas Provas">
+            <ProtectedRoute> {/* Acesso para todos que geraram provas */}
+              <UserTests />
+            </ProtectedRoute>
+          </MainLayout>
+        } />
+
         <Route path="/user-create" element={
           <MainLayout title="Cadastrar Usuário">
             <ProtectedRoute requiredPermission="Admin">
@@ -219,6 +246,13 @@ function App() {
           <MainLayout title="Admin - Agentes Padrão">
             <ProtectedRoute requiredPermission="Admin">
               <AdminStandardModels />
+            </ProtectedRoute>
+          </MainLayout>
+        } />
+        <Route path="/admin/questions" element={
+          <MainLayout title="Admin - Questões">
+            <ProtectedRoute requiredPermission="Prof"> {/* Acesso para Prof e Admin */}
+              <AdminQuestions />
             </ProtectedRoute>
           </MainLayout>
         } />
