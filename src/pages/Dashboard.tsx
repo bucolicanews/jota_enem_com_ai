@@ -56,7 +56,22 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Link>
-        
+
+        {/* Card Agentes Professores (AGORA PARA TODOS) */}
+        <Link to="/standard-models" className="transform hover:-translate-y-1 transition-transform duration-300">
+          <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base font-semibold">Agentes Professores</CardTitle>
+              <Bot className="h-5 w-5 text-purple-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Converse com nossos agentes de IA especializados.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
         {/* Card Chat da Turma */}
         <Link to="/chat" className="transform hover:-translate-y-1 transition-transform duration-300">
           <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
@@ -164,45 +179,17 @@ const Dashboard = () => {
                   </p>
                 </CardContent>
               </Card>
-            </Link>
-
-            <Link to="/documentos" className="transform hover:-translate-y-1 transition-transform duration-300">
-              <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-base font-semibold">Meus Documentos</CardTitle>
-                  <BookCopy className="h-5 w-5 text-indigo-500" />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Gerencie seus documentos e materiais de estudo.
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
+            </Link>           
 
             <Link to="/language-models" className="transform hover:-translate-y-1 transition-transform duration-300">
               <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-base font-semibold">Meus Modelos de IA</CardTitle>
+                  <CardTitle className="text-base font-semibold">Minhas Chaves de IA</CardTitle> {/* RENOMEADO */}
                   <KeyRound className="h-5 w-5 text-red-500" />
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
                     Gerencie suas chaves de API para IAs pessoais.
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link to="/standard-models" className="transform hover:-translate-y-1 transition-transform duration-300">
-              <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-base font-semibold">Agentes Professores</CardTitle>
-                  <Bot className="h-5 w-5 text-purple-500" />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Converse com nossos agentes de IA especializados.
                   </p>
                 </CardContent>
               </Card>
