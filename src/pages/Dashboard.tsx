@@ -39,10 +39,10 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         {/* ========================================= */}
-        {/* === Cards Comuns a todos os usuários === */}
+        {/* === Cards Comuns a todos os usuários (Free, Pro, Prof, Admin) === */}
         {/* ========================================= */}
         
-        {/* Card Notícias */}
+        {/* Card Notícias e Vídeos */}
         <Link to="/noticias" className="transform hover:-translate-y-1 transition-transform duration-300">
           <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -52,21 +52,6 @@ const Dashboard = () => {
             <CardContent>
               <p className="text-sm text-muted-foreground">
                 Fique por dentro das últimas novidades do ENEM.
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* Card Agentes Professores (AGORA PARA TODOS) */}
-        <Link to="/standard-models" className="transform hover:-translate-y-1 transition-transform duration-300">
-          <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-semibold">Agentes Professores</CardTitle>
-              <Bot className="h-5 w-5 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Converse com nossos agentes de IA especializados.
               </p>
             </CardContent>
           </Card>
@@ -101,6 +86,21 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Link>
+
+        {/* Card Minhas Chaves de IA (AGORA PARA TODOS) */}
+        <Link to="/language-models" className="transform hover:-translate-y-1 transition-transform duration-300">
+          <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base font-semibold">Minhas Chaves de IA</CardTitle>
+              <KeyRound className="h-5 w-5 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Gerencie suas chaves de API para IAs pessoais.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
         
         {/* ========================================= */}
         {/* === Cards Específicos para Free e superiores === */}
@@ -126,19 +126,22 @@ const Dashboard = () => {
         {/* ========================================= */}
         {userPermissions?.isPro && (
           <>
-             <Link to="/forum" className="transform hover:-translate-y-1 transition-transform duration-300">
-            <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-base font-semibold">Fórum PRO</CardTitle>
-                <MessageCircle className="h-5 w-5 text-orange-500" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Acesse o fórum completo com todas as funcionalidades.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
+            {/* Card Fórum PRO */}
+            <Link to="/forum" className="transform hover:-translate-y-1 transition-transform duration-300">
+              <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base font-semibold">Fórum PRO</CardTitle>
+                  <MessageCircle className="h-5 w-5 text-orange-500" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Acesse o fórum completo com todas as funcionalidades.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Card Simulados */}
             <Link to="/simulados" className="transform hover:-translate-y-1 transition-transform duration-300">
               <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -153,6 +156,7 @@ const Dashboard = () => {
               </Card>
             </Link>
 
+            {/* Card Questões */}
             <Link to="/questoes" className="transform hover:-translate-y-1 transition-transform duration-300">
               <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -167,6 +171,7 @@ const Dashboard = () => {
               </Card>
             </Link>
 
+            {/* Card Desempenho */}
             <Link to="/desempenho" className="transform hover:-translate-y-1 transition-transform duration-300">
               <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -181,15 +186,16 @@ const Dashboard = () => {
               </Card>
             </Link>           
 
-            <Link to="/language-models" className="transform hover:-translate-y-1 transition-transform duration-300">
+            {/* Card Agentes Professores (AGORA PARA PRO) */}
+            <Link to="/standard-models" className="transform hover:-translate-y-1 transition-transform duration-300">
               <Card className="bg-indigo-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-base font-semibold">Minhas Chaves de IA</CardTitle> {/* RENOMEADO */}
-                  <KeyRound className="h-5 w-5 text-red-500" />
+                  <CardTitle className="text-base font-semibold">Agentes Professores</CardTitle>
+                  <Bot className="h-5 w-5 text-purple-500" />
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Gerencie suas chaves de API para IAs pessoais.
+                    Converse com nossos agentes de IA especializados.
                   </p>
                 </CardContent>
               </Card>

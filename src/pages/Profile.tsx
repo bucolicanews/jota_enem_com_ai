@@ -24,6 +24,17 @@ interface Empresa {
   nome: string;
 }
 
+// Definindo a interface para o perfil do cliente com a estrutura correta
+interface ClienteProfile {
+  nome: string | null;
+  apelido: string | null;
+  avatar_url: string | null;
+  permissao: Permissao | null; // Corrigido para ser um objeto ou null
+  nivel_dificuldade: string | null;
+  cod_empresa: string | null;
+  bloqueado: boolean; // Adicionado
+}
+
 const Profile = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -71,9 +82,9 @@ const Profile = () => {
         // Fetch do perfil com todos os campos necessários
         const { data: profile, error: profileError } = await supabase
           .from('cliente')
-          .select('nome, apelido, avatar_url, permissao:permissao_id(id, nome), nivel_dificuldade, cod_empresa')
+          .select('nome, apelido, avatar_url, permissao:permissao_id(id, nome), nivel_dificuldade, cod_empresa, bloqueado') // Adicionado 'bloqueado'
           .eq('id', profileIdToFetch)
-          .single();
+          .single<ClienteProfile>(); // <--- Explicitamente tipando o retorno
 
         if (profileError) {
           console.error('Erro ao carregar perfil:', profileError);
@@ -90,8 +101,7 @@ const Profile = () => {
           setNivelDificuldade(profile.nivel_dificuldade || 'iniciante');
           setPermissaoSelecionadaId(profile.permissao?.id || '');
           setEmpresaSelecionadaId(profile.cod_empresa || '');
-          // Supondo que 'bloqueado' seja um campo na tabela 'cliente'
-          setBloqueado(profile.bloqueado || false);
+          setBloqueado(profile.bloqueado || false); // Usando a propriedade 'bloqueado'
 
           if (id && profile.permissao && profile.permissao.nome) {
             setPermissaoNome(profile.permissao.nome);
@@ -293,6 +303,44 @@ const Profile = () => {
             </div>
 
             {/* Campos adicionais */}
+            {/* Estes campos são apenas para visualização no perfil do usuário comum, não para edição */}
+            {canEdit && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="permissao_id">Permissão</Label>
+                  <Select value={permissaoSelecionadaId} onValueChange={setPermissaoSelecionadaId} disabled={!canEdit}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a permissão" /></SelectTrigger>
+                    <SelectContent>
+                      {permissoes.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cod_empresa">Empresa</Label>
+                  <Select value={empresaSelecionadaId || ''} onValueChange={setEmpresaSelecionadaId} disabled={!canEdit}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+                    <SelectContent>
+                      {empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nivel_dificuldade">Nível de Dificuldade</Label>
+                  <Select value={nivelDificuldade} onValueChange={setNivelDificuldade} disabled={!canEdit}>
+                    <SelectTrigger><SelectValue placeholder="Nível de Dificuldade" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="iniciante">Iniciante</SelectItem>
+                      <SelectItem value="intermediario">Intermediário</SelectItem>
+                      <SelectItem value="avancado">Avançado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch id="bloqueado" checked={bloqueado} onCheckedChange={setBloqueado} disabled={!canEdit} />
+                  <Label htmlFor="bloqueado">Usuário Bloqueado</Label>
+                </div>
+              </>
+            )}
 
             {canEdit && (
               <Button type="submit" className="w-full" disabled={loading}>
