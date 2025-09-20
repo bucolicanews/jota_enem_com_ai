@@ -66,7 +66,8 @@ serve(async (req) => {
     }
     console.log('User authenticated:', user.id);
 
-    const { modelId, userMessage, conversationId: incomingConversationId, systemMessage: initialSystemMessage, selectedLanguage } = await req.json()
+    // Removido selectedLanguage do corpo da requisição
+    const { modelId, userMessage, conversationId: incomingConversationId, systemMessage: initialSystemMessage } = await req.json()
     if (!modelId || !userMessage) {
       console.log('Access denied: modelId e userMessage são obrigatórios.');
       return new Response(JSON.stringify({ error: 'modelId e userMessage são obrigatórios' }), {
@@ -178,7 +179,7 @@ serve(async (req) => {
       console.log('Attempting to create new conversation with title:', generatedTitle);
       const { data: newConv, error: convError } = await serviceClient
         .from('ai_conversations')
-        .insert({ user_id: user.id, model_id: modelId, title: generatedTitle, language: selectedLanguage }) // Salvar o idioma na nova conversa
+        .insert({ user_id: user.id, model_id: modelId, title: generatedTitle /* language: selectedLanguage */ }) // Removido 'language'
         .select('id, title')
         .single();
 
@@ -234,10 +235,8 @@ serve(async (req) => {
     const messagesForLLM: { role: string; content: string }[] = [];
     
     let finalSystemMessage = system_message || initialSystemMessage || '';
-    // A instrução de idioma será adicionada diretamente à mensagem do usuário para maior impacto
-    // if (selectedLanguage && selectedLanguage !== 'Português') { 
-    //   finalSystemMessage += `\n\nResponda sempre em ${selectedLanguage}.`;
-    // }
+    // Adicionar instrução explícita para responder em português
+    finalSystemMessage += `\n\nResponda sempre em Português do Brasil.`;
 
     if (finalSystemMessage) {
       messagesForLLM.push({ role: 'system', content: finalSystemMessage.trim() });
@@ -251,12 +250,8 @@ serve(async (req) => {
     }
     
     // Add current user message (already saved, but needed for LLM context)
-    // Prepend language instruction directly to the user message for stronger effect
-    let currentMessageContent = userMessage;
-    if (selectedLanguage && selectedLanguage !== 'Português') {
-      currentMessageContent = `Responda sempre em ${selectedLanguage}. ${userMessage}`;
-    }
-    messagesForLLM.push({ role: 'user', content: currentMessageContent });
+    // A instrução de idioma foi movida para o system message para ser mais consistente
+    messagesForLLM.push({ role: 'user', content: userMessage });
     console.log('Messages prepared for LLM:', messagesForLLM);
 
     // Invoke the appropriate LLM based on the provider

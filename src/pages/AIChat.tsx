@@ -20,8 +20,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label'; // Mantido caso seja usado em outro lugar, mas removido do contexto de idioma
 
 interface Profile {
   nome: string | null;
@@ -43,7 +42,7 @@ interface Conversation {
   user_id: string;
   model_id: string;
   title: string;
-  language: string; // Adicionado
+  // language: string; // Removido
   created_at: string;
   updated_at: string;
 }
@@ -77,8 +76,8 @@ const AIChat = () => {
   const [isEditTitleDialogOpen, setIsEditTitleDialogOpen] = useState(false);
   const [editTitle, setEditTitle] = useState('');
 
-  // Estado para seleção de idioma
-  const [selectedLanguage, setSelectedLanguage] = useState('Português'); // Default language
+  // Estado para seleção de idioma - REMOVIDO
+  // const [selectedLanguage, setSelectedLanguage] = useState('Português'); 
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return '..';
@@ -191,12 +190,12 @@ const AIChat = () => {
           return;
         }
         setCurrentConversation(convData);
-        setSelectedLanguage(convData.language || 'Português'); // Carregar idioma salvo
+        // setSelectedLanguage(convData.language || 'Português'); // Removido
         await fetchMessages(convData.id);
       } else {
         setCurrentConversation(null);
         setMessages([]);
-        setSelectedLanguage('Português'); // Resetar para o padrão em nova conversa
+        // setSelectedLanguage('Português'); // Removido
         if (modelData.system_message) {
           setMessages([{
             id: 'system-intro',
@@ -212,27 +211,27 @@ const AIChat = () => {
     setupChat();
   }, [navigate, modelId, conversationId, fetchConversations, fetchMessages]);
 
-  // Efeito para atualizar o idioma da conversa no DB quando selectedLanguage muda
-  useEffect(() => {
-    const updateConversationLanguage = async () => {
-      if (currentConversation && user && selectedLanguage !== currentConversation.language) {
-        const { error } = await supabase
-          .from('ai_conversations')
-          .update({ language: selectedLanguage })
-          .eq('id', currentConversation.id)
-          .eq('user_id', user.id);
+  // Efeito para atualizar o idioma da conversa no DB quando selectedLanguage muda - REMOVIDO
+  // useEffect(() => {
+  //   const updateConversationLanguage = async () => {
+  //     if (currentConversation && user && selectedLanguage !== currentConversation.language) {
+  //       const { error } = await supabase
+  //         .from('ai_conversations')
+  //         .update({ language: selectedLanguage })
+  //         .eq('id', currentConversation.id)
+  //         .eq('user_id', user.id);
 
-        if (error) {
-          console.error('Error updating conversation language:', error);
-          showError('Erro ao salvar o idioma da conversa.');
-        } else {
-          setCurrentConversation(prev => prev ? { ...prev, language: selectedLanguage } : null);
-          showSuccess('Idioma da conversa atualizado!');
-        }
-      }
-    };
-    updateConversationLanguage();
-  }, [selectedLanguage, currentConversation, user]);
+  //       if (error) {
+  //         console.error('Error updating conversation language:', error);
+  //         showError('Erro ao salvar o idioma da conversa.');
+  //       } else {
+  //         setCurrentConversation(prev => prev ? { ...prev, language: selectedLanguage } : null);
+  //         showSuccess('Idioma da conversa atualizado!');
+  //       }
+  //     }
+  //   };
+  //   updateConversationLanguage();
+  // }, [selectedLanguage, currentConversation, user]);
 
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -262,7 +261,7 @@ const AIChat = () => {
           userMessage: userMessageContent,
           conversationId: currentConvId,
           systemMessage: model.system_message,
-          selectedLanguage: selectedLanguage, // Passar o idioma selecionado
+          // selectedLanguage: selectedLanguage, // Removido
         },
       });
 
@@ -276,7 +275,7 @@ const AIChat = () => {
           user_id: user.id,
           model_id: model.id,
           title: newConversationTitle,
-          language: selectedLanguage, // Salvar o idioma na nova conversa
+          // language: selectedLanguage, // Removido
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -323,7 +322,7 @@ const AIChat = () => {
     setCurrentConversation(null);
     setMessages([]);
     setNewMessage('');
-    setSelectedLanguage('Português'); // Resetar para o padrão ao iniciar nova conversa
+    // setSelectedLanguage('Português'); // Removido
     navigate(`/ai-chat/${modelId}`);
   };
 
@@ -442,7 +441,8 @@ const AIChat = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        {/* REMOVIDO: Seletor de idioma */}
+        {/* <div className="flex items-center gap-2">
           <Label htmlFor="language-select" className="sr-only">Idioma</Label>
           <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
             <SelectTrigger id="language-select" className="w-[140px]">
@@ -454,7 +454,7 @@ const AIChat = () => {
               <SelectItem value="Español">Español</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </div> */}
       </CardHeader>
       <CardContent className="flex-1 p-4 space-y-4 overflow-y-auto h-full">
         {messages.length === 0 && (
