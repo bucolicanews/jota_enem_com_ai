@@ -178,7 +178,7 @@ serve(async (req) => {
       console.log('Attempting to create new conversation with title:', generatedTitle);
       const { data: newConv, error: convError } = await serviceClient
         .from('ai_conversations')
-        .insert({ user_id: user.id, model_id: modelId, title: generatedTitle })
+        .insert({ user_id: user.id, model_id: modelId, title: generatedTitle, language: selectedLanguage }) // Salvar o idioma na nova conversa
         .select('id, title')
         .single();
 
@@ -234,9 +234,10 @@ serve(async (req) => {
     const messagesForLLM: { role: string; content: string }[] = [];
     
     let finalSystemMessage = system_message || initialSystemMessage || '';
-    if (selectedLanguage && selectedLanguage !== 'Português') { // Only add language instruction if not default
-      finalSystemMessage += `\n\nResponda sempre em ${selectedLanguage}.`;
-    }
+    // A instrução de idioma será adicionada diretamente à mensagem do usuário para maior impacto
+    // if (selectedLanguage && selectedLanguage !== 'Português') { 
+    //   finalSystemMessage += `\n\nResponda sempre em ${selectedLanguage}.`;
+    // }
 
     if (finalSystemMessage) {
       messagesForLLM.push({ role: 'system', content: finalSystemMessage.trim() });
@@ -248,8 +249,14 @@ serve(async (req) => {
         messagesForLLM.push({ role: msg.sender === 'user' ? 'user' : 'model', content: msg.content });
       });
     }
+    
     // Add current user message (already saved, but needed for LLM context)
-    messagesForLLM.push({ role: 'user', content: userMessage });
+    // Prepend language instruction directly to the user message for stronger effect
+    let currentMessageContent = userMessage;
+    if (selectedLanguage && selectedLanguage !== 'Português') {
+      currentMessageContent = `Responda sempre em ${selectedLanguage}. ${userMessage}`;
+    }
+    messagesForLLM.push({ role: 'user', content: currentMessageContent });
     console.log('Messages prepared for LLM:', messagesForLLM);
 
     // Invoke the appropriate LLM based on the provider
