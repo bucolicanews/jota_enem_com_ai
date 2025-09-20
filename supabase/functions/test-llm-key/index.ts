@@ -1,3 +1,5 @@
+"use client";
+
 // @ts-ignore: Deno imports are valid in runtime
 /// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
@@ -12,7 +14,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  console.log('Edge Function test-llm-key started.'); // Added log
+  console.log('Edge Function test-llm-key started.');
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -32,27 +34,27 @@ serve(async (req) => {
 
     // Get the user from the token
     const { data: { user }, error: userAuthError } = await supabaseClient.auth.getUser()
-    if (userAuthError) { // Log auth error
+    if (userAuthError) {
         console.error('User authentication error:', userAuthError);
     }
     if (!user) {
-      console.log('Access denied: No user found.'); // Added log
+      console.log('Access denied: No user found.');
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401,
       })
     }
-    console.log('User authenticated:', user.id); // Added log
+    console.log('User authenticated:', user.id);
 
     const { modelId } = await req.json()
     if (!modelId) {
-      console.log('Access denied: modelId is required.'); // Added log
+      console.log('Access denied: modelId is required.');
       return new Response(JSON.stringify({ error: 'modelId is required' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       })
     }
-    console.log('Testing modelId:', modelId); // Added log
+    console.log('Testing modelId:', modelId);
 
     // Create a service role client to securely fetch the API key
     // @ts-ignore: Deno is available in runtime
@@ -71,22 +73,22 @@ serve(async (req) => {
       .single()
 
     if (dbError) {
-        console.error('Database fetch error for model:', dbError); // Added log
+        console.error('Database fetch error for model:', dbError);
     }
     if (!model) {
-      console.log('Model not found for ID:', modelId); // Added log
+      console.log('Model not found for ID:', modelId);
       return new Response(JSON.stringify({ error: 'Model not found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
       })
     }
-    console.log('Model fetched:', { id: model.id, provider: model.provider, model_variant: model.model_variant, is_standard: model.is_standard, user_id: model.user_id }); // Added log
+    console.log('Model fetched:', { id: model.id, provider: model.provider, model_variant: model.model_variant, is_standard: model.is_standard, user_id: model.user_id });
 
     // Check access:
     // If it's a standard model, user_id must be null.
     // If it's not a standard model, user_id must match the current user's ID.
     if (!model.is_standard && model.user_id !== user.id) {
-        console.log('Access denied: User does not own non-standard model.'); // Added log
+        console.log('Access denied: User does not own non-standard model.');
         return new Response(JSON.stringify({ error: 'Access denied to this model' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 403,
@@ -94,13 +96,13 @@ serve(async (req) => {
     }
     // Additional safeguard: if it's marked as standard but has a user_id, it's an invalid config.
     if (model.is_standard && model.user_id !== null) {
-        console.log('Access denied: Invalid standard model configuration (user_id is not null).'); // Added log
+        console.log('Access denied: Invalid standard model configuration (user_id is not null).');
         return new Response(JSON.stringify({ error: 'Invalid standard model configuration: user_id must be null' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 403,
         })
     }
-    console.log('Access granted for model testing.'); // Added log
+    console.log('Access granted for model testing.');
 
     const { api_key, provider, model_variant } = model;
     
@@ -109,99 +111,105 @@ serve(async (req) => {
 
     let testResult = { success: false, message: 'Provider not supported' };
 
-    // Test OpenAI
-    if (provider === 'OpenAI') {
-        console.log('Attempting to test OpenAI...'); // Added log
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
-        });
-        console.log('OpenAI response status:', response.status); // Added log
-        if (response.ok) {
-            testResult = { success: true, message: 'Conexão com OpenAI bem-sucedida!' };
-        } else {
-            const errorData = await response.json();
-            console.error('OpenAI API error response:', errorData); // Added log
-            testResult = { success: false, message: `Falha na conexão com OpenAI: ${errorData.error?.message || 'Erro desconhecido'}` };
-        }
-    } 
-    // Test Google Gemini
-    else if (provider === 'Google Gemini') {
-        console.log('Attempting to test Google Gemini...'); // Added log
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model_variant}:generateContent?key=${api_key}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: 'Hello' }] }] })
-        });
-        console.log('Google Gemini response status:', response.status); // Added log
-        if (response.ok) {
-            testResult = { success: true, message: 'Conexão com Google Gemini bem-sucedida!' };
-        } else {
-            const errorData = await response.json();
-            console.error('Google Gemini API error response:', errorData); // Added log
-            testResult = { success: false, message: `Falha na conexão com Gemini: ${errorData.error?.message || 'Erro desconhecido'}` };
-        }
-    } 
-    // Test Anthropic
-    else if (provider === 'Anthropic') {
-        console.log('Attempting to test Anthropic...'); // Added log
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': api_key, 'anthropic-version': '2023-06-01' },
-            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
-        });
-        console.log('Anthropic response status:', response.status); // Added log
-        if (response.ok) {
-            testResult = { success: true, message: 'Conexão com Anthropic bem-sucedida!' };
-        } else {
-            const errorData = await response.json();
-            console.error('Anthropic API error response:', errorData); // Added log
-            testResult = { success: false, message: `Falha na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}` };
-        }
-    } 
-    // Test Groq
-    else if (provider === 'Groq') {
-        console.log('Attempting to test Groq...'); // Added log
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
-        });
-        console.log('Groq response status:', response.status); // Added log
-        if (response.ok) {
-            testResult = { success: true, message: 'Conexão com Groq bem-sucedida!' };
-        } else {
-            const errorData = await response.json();
-            console.error('Groq API error response:', errorData); // Added log
-            testResult = { success: false, message: `Falha na conexão com Groq: ${errorData.error?.message || 'Erro desconhecido'}` };
-        }
-    }
-    // Test DeepSeek
-    else if (provider === 'DeepSeek') {
-        console.log('Attempting to test DeepSeek...'); // Added log
-        const response = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-            body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
-        });
-        console.log('DeepSeek response status:', response.status); // Added log
-        if (response.ok) {
-            testResult = { success: true, message: 'Conexão com DeepSeek bem-sucedida!' };
-        } else {
-            const errorData = await response.json();
-            console.error('DeepSeek API error response:', errorData); // Added log
-            testResult = { success: false, message: `Falha na conexão com DeepSeek: ${errorData.error?.message || 'Erro desconhecido'}` };
-        }
+    try {
+      // Test OpenAI
+      if (provider === 'OpenAI') {
+          console.log('Attempting to test OpenAI...');
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
+              body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+          });
+          console.log('OpenAI response status:', response.status);
+          if (response.ok) {
+              testResult = { success: true, message: 'Conexão com OpenAI bem-sucedida!' };
+          } else {
+              const errorData = await response.json();
+              console.error('OpenAI API error response:', errorData);
+              testResult = { success: false, message: `Falha na conexão com OpenAI: ${errorData.error?.message || 'Erro desconhecido'}` };
+          }
+      } 
+      // Test Google Gemini
+      else if (provider === 'Google Gemini') {
+          console.log('Attempting to test Google Gemini...');
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model_variant}:generateContent?key=${api_key}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: 'Hello' }] }] })
+          });
+          console.log('Google Gemini response status:', response.status);
+          if (response.ok) {
+              testResult = { success: true, message: 'Conexão com Google Gemini bem-sucedida!' };
+          } else {
+              const errorData = await response.json();
+              console.error('Google Gemini API error response:', errorData);
+              testResult = { success: false, message: `Falha na conexão com Gemini: ${errorData.error?.message || 'Erro desconhecido'}` };
+          }
+      } 
+      // Test Anthropic
+      else if (provider === 'Anthropic') {
+          console.log('Attempting to test Anthropic...');
+          const response = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-key': api_key, 'anthropic-version': '2023-06-01' },
+              body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+          });
+          console.log('Anthropic response status:', response.status);
+          if (response.ok) {
+              testResult = { success: true, message: 'Conexão com Anthropic bem-sucedida!' };
+          } else {
+              const errorData = await response.json();
+              console.error('Anthropic API error response:', errorData);
+              testResult = { success: false, message: `Falha na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}` };
+          }
+      } 
+      // Test Groq
+      else if (provider === 'Groq') {
+          console.log('Attempting to test Groq...');
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
+              body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+          });
+          console.log('Groq response status:', response.status);
+          if (response.ok) {
+              testResult = { success: true, message: 'Conexão com Groq bem-sucedida!' };
+          } else {
+              const errorData = await response.json();
+              console.error('Groq API error response:', errorData);
+              testResult = { success: false, message: `Falha na conexão com Groq: ${errorData.error?.message || 'Erro desconhecido'}` };
+          }
+      }
+      // Test DeepSeek
+      else if (provider === 'DeepSeek') {
+          console.log('Attempting to test DeepSeek...');
+          const response = await fetch('https://api.deepseek.com/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
+              body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+          });
+          console.log('DeepSeek response status:', response.status);
+          if (response.ok) {
+              testResult = { success: true, message: 'Conexão com DeepSeek bem-sucedida!' };
+          } else {
+              const errorData = await response.json();
+              console.error('DeepSeek API error response:', errorData);
+              testResult = { success: false, message: `Falha na conexão com DeepSeek: ${errorData.error?.message || 'Erro desconhecido'}` };
+          }
+      }
+    } catch (fetchError: any) {
+      console.error(`Error during API call for provider ${provider}:`, fetchError);
+      testResult = { success: false, message: `Erro na comunicação com o provedor ${provider}: ${fetchError.message}` };
     }
 
-    console.log('Edge Function test-llm-key finished successfully.'); // Added log
+
+    console.log('Edge Function test-llm-key finished successfully.');
     return new Response(JSON.stringify(testResult), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
   } catch (error: any) {
-    console.error('Unhandled error in test-llm-key:', error); // Added log
+    console.error('Unhandled error in test-llm-key:', error); // This is the key log
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
