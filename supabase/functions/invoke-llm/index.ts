@@ -31,7 +31,7 @@ serve(async (req) => {
     // Get the user from the token
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401,
       })
@@ -39,13 +39,13 @@ serve(async (req) => {
 
     const { modelId, userMessage } = await req.json()
     if (!modelId || !userMessage) {
-      return new Response(JSON.stringify({ error: 'modelId and userMessage are required' }), {
+      return new Response(JSON.stringify({ error: 'modelId e userMessage são obrigatórios' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       })
     }
 
-    // Create a service role client to securely fetch the API key
+    // Create a service role client to securely fetch the API key and user permissions
     // @ts-ignore: Deno is available in runtime
     const serviceClient = createClient(
         // @ts-ignore: Deno is available in runtime
@@ -54,8 +54,41 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Fetch the model by ID first, including is_standard and user_id for access check
-    // REMOVIDO: .eq('user_id', user.id) para permitir buscar modelos padrão
+    // 1. Fetch user's permission level
+    const { data: clientProfile, error: clientProfileError } = await serviceClient
+      .from('cliente')
+      .select('permissao_id')
+      .eq('id', user.id)
+      .single();
+
+    if (clientProfileError || !clientProfile) {
+      console.error('Erro ao buscar perfil do cliente:', clientProfileError);
+      return new Response(JSON.stringify({ error: 'Erro ao verificar permissões do usuário.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403,
+      });
+    }
+
+    const { data: userPermission, error: userPermissionError } = await serviceClient
+      .from('permissoes')
+      .select('nome')
+      .eq('id', clientProfile.permissao_id)
+      .single();
+
+    if (userPermissionError || !userPermission) {
+      console.error('Erro ao buscar nome da permissão:', userPermissionError);
+      return new Response(JSON.stringify({ error: 'Erro ao verificar permissões do usuário.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403,
+      });
+    }
+
+    const permissionName = userPermission.nome;
+    const isPro = ['Pro', 'Prof', 'Admin'].includes(permissionName);
+    const isProf = ['Prof', 'Admin'].includes(permissionName);
+    const isAdmin = permissionName === 'Admin';
+
+    // 2. Fetch the model by ID
     const { data: model, error: dbError } = await serviceClient
       .from('language_models')
       .select('api_key, provider, model_name, model_variant, is_standard, user_id')
@@ -63,35 +96,38 @@ serve(async (req) => {
       .single()
 
     if (dbError || !model) {
-      return new Response(JSON.stringify({ error: 'Model not found' }), {
+      return new Response(JSON.stringify({ error: 'Modelo de IA não encontrado.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
       })
     }
 
-    // Check access:
-    // If it's a standard model, user_id must be null.
-    // If it's not a standard model, user_id must match the current user's ID.
-    if (!model.is_standard && model.user_id !== user.id) {
-        return new Response(JSON.stringify({ error: 'Access denied to this model' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 403,
-        })
+    // 3. Implement Access Logic
+    let hasAccess = false;
+    if (model.is_standard) {
+      // Standard models require PRO, Prof, or Admin permission
+      if (model.user_id !== null) {
+        // Invalid configuration for a standard model
+        console.error(`Configuração inválida: Modelo padrão ${model.id} tem user_id.`);
+        return new Response(JSON.stringify({ error: 'Configuração inválida do modelo padrão.' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 403,
+        });
+      }
+      hasAccess = isPro || isProf || isAdmin;
+    } else {
+      // Personal models require matching user_id
+      hasAccess = model.user_id === user.id;
     }
-    // Additional safeguard: if it's marked as standard but has a user_id, it's an invalid config.
-    if (model.is_standard && model.user_id !== null) {
-        return new Response(JSON.stringify({ error: 'Invalid standard model configuration: user_id must be null' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 403,
-        })
+
+    if (!hasAccess) {
+      return new Response(JSON.stringify({ error: 'Acesso negado ao modelo de IA.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403,
+      })
     }
 
     const { api_key, provider, model_variant } = model;
-
-    // --- LOGGING PARA DEPURAR O PROVEDOR ---
-    console.log('DEBUG: Provider recebido da DB:', provider);
-    console.log('DEBUG: Model Variant recebido da DB:', model_variant);
-    // --- FIM DO LOGGING ---
     
     let aiResponse = 'Não foi possível obter uma resposta do modelo de IA.';
 
@@ -177,7 +213,8 @@ serve(async (req) => {
       status: 200,
     })
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Erro interno na função Edge invoke-llm:', error);
+    return new Response(JSON.stringify({ error: `Erro interno: ${error.message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })
