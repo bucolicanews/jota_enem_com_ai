@@ -56,32 +56,33 @@ function App() {
           </MainLayout>
         } />
 
-
-        {/* <Route path="/from_create_user" element={<From_create_user />} /> */} {/* Removido */}
+        {/* Rota para o Fórum PRO (acesso para PRO e superiores) */}
         <Route path="/forum" element={
           <MainLayout title="Fórum" useContainer={false}>
-            <ProtectedRoute>
+            <ProtectedRoute requiredPermission="Pro">
               <Forum />
             </ProtectedRoute>
           </MainLayout>
         } />
         <Route path="/forum/:topicId" element={
           <MainLayout title="Fórum" useContainer={false}>
-            <ProtectedRoute>
+            <ProtectedRoute requiredPermission="Pro">
               <Forum />
             </ProtectedRoute>
           </MainLayout>
         } />
-           <Route path="/forumfree" element={
+        
+        {/* Rota para o Fórum FREE (acesso para FREE e superiores) */}
+        <Route path="/forumfree" element={
           <MainLayout title="Fórum" useContainer={false}>
-            <ProtectedRoute>
+            <ProtectedRoute> {/* Acesso padrão (Free) */}
               <ForumFree />
             </ProtectedRoute>
           </MainLayout>
         } />
         <Route path="/forumfree/:topicId" element={
           <MainLayout title="Fórum" useContainer={false}>
-            <ProtectedRoute>
+            <ProtectedRoute> {/* Acesso padrão (Free) */}
               <ForumFree />
             </ProtectedRoute>
           </MainLayout>
@@ -102,13 +103,16 @@ function App() {
             </ProtectedRoute>
           </MainLayout>
         } />
+        
+        {/* Rota para Minhas Chaves de IA (acesso para TODOS) */}
         <Route path="/language-models" element={
-          <MainLayout title="Meus Modelos de IA">
-            <ProtectedRoute requiredPermission="Pro">
+          <MainLayout title="Minhas Chaves de IA">
+            <ProtectedRoute> {/* Acesso padrão (Free) */}
               <LanguageModels />
             </ProtectedRoute>
           </MainLayout>
         } />
+        
         {/* Nova rota para o chat com IA */}
         <Route path="/ai-chat/:modelId" element={
           <MainLayout title="Chat com IA" useContainer={false}>
