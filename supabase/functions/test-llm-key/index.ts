@@ -54,19 +54,35 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Fetch the model, ensuring the user owns it
+    // Fetch the model by ID first, including is_standard and user_id for access check
     const { data: model, error: dbError } = await serviceClient
       .from('language_models')
-      .select('api_key, provider, model_variant')
+      .select('api_key, provider, model_name, model_variant, is_standard, user_id')
       .eq('id', modelId)
-      .eq('user_id', user.id)
       .single()
 
     if (dbError || !model) {
-      return new Response(JSON.stringify({ error: 'Model not found or access denied' }), {
+      return new Response(JSON.stringify({ error: 'Model not found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
       })
+    }
+
+    // Check access:
+    // If it's a standard model, user_id must be null.
+    // If it's not a standard model, user_id must match the current user's ID.
+    if (!model.is_standard && model.user_id !== user.id) {
+        return new Response(JSON.stringify({ error: 'Access denied to this model' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 403,
+        })
+    }
+    // Additional safeguard: if it's marked as standard but has a user_id, it's an invalid config.
+    if (model.is_standard && model.user_id !== null) {
+        return new Response(JSON.stringify({ error: 'Invalid standard model configuration: user_id must be null' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 403,
+        })
     }
 
     const { api_key, provider, model_variant } = model;
@@ -119,7 +135,7 @@ serve(async (req) => {
             const errorData = await response.json();
             testResult = { success: false, message: `Falha na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}` };
         }
-    }
+    } 
     // Test Groq
     else if (provider === 'Groq') {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {

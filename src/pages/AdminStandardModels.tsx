@@ -312,6 +312,33 @@ export const AdminStandardModels = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Avatar do Agente - MOVIDO PARA O TOPO */}
+            <div className="space-y-2 md:col-span-2">
+              <Label>Avatar do Agente</Label>
+              <div className="flex items-center gap-4">
+                <Avatar className="h-20 w-20 border-2">
+                  <AvatarImage src={avatarUrl || ''} alt={modelName || 'Agente'} />
+                  <AvatarFallback>{getInitials(modelName)}</AvatarFallback>
+                </Avatar>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleAvatarUpload}
+                  disabled={uploading}
+                />
+                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                  {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Selecionar Avatar'}
+                </Button>
+                {avatarUrl && (
+                  <Button type="button" variant="ghost" size="icon" onClick={handleDeleteAvatar} disabled={uploading}>
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="provider">Provedor</Label>
@@ -394,32 +421,6 @@ export const AdminStandardModels = () => {
                   onCheckedChange={setIsActive}
                 />
                 <Label htmlFor="is-active">Ativo (Visível para usuários PRO)</Label>
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label>Avatar do Agente</Label>
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-20 w-20 border-2">
-                    <AvatarImage src={avatarUrl || ''} alt={modelName || 'Agente'} />
-                    <AvatarFallback>{getInitials(modelName)}</AvatarFallback>
-                  </Avatar>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={handleAvatarUpload}
-                    disabled={uploading}
-                  />
-                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                    {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Selecionar Avatar'}
-                  </Button>
-                  {avatarUrl && (
-                    <Button type="button" variant="ghost" size="icon" onClick={handleDeleteAvatar} disabled={uploading}>
-                      <XCircle className="h-5 w-5 text-red-500" />
-                    </Button>
-                  )}
-                </div>
               </div>
             </div>
 
