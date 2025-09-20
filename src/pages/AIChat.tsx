@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Loader2, Bot, User as UserIcon, ArrowLeft, PlusCircle, MessageSquareText, Pencil } from 'lucide-react';
+import { Send, Loader2, Bot, User as UserIcon, ArrowLeft, PlusCircle, MessageSquareText, Pencil, Trash2, XCircle } from 'lucide-react';
 import { showError, showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import type { User } from '@supabase/supabase-js';
@@ -20,7 +20,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label'; // Mantido caso seja usado em outro lugar, mas removido do contexto de idioma
+import { Label } from '@/components/ui/label';
 
 interface Profile {
   nome: string | null;
@@ -42,7 +42,6 @@ interface Conversation {
   user_id: string;
   model_id: string;
   title: string;
-  // language: string; // Removido
   created_at: string;
   updated_at: string;
 }
@@ -76,8 +75,9 @@ const AIChat = () => {
   const [isEditTitleDialogOpen, setIsEditTitleDialogOpen] = useState(false);
   const [editTitle, setEditTitle] = useState('');
 
-  // Estado para seleção de idioma - REMOVIDO
-  // const [selectedLanguage, setSelectedLanguage] = useState('Português'); 
+  // Estados para exclusão de conversa
+  const [isDeleteConversationDialogOpen, setIsDeleteConversationDialogOpen] = useState(false);
+  const [conversationToDeleteId, setConversationToDeleteId] = useState<string | null>(null);
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return '..';
@@ -190,49 +190,15 @@ const AIChat = () => {
           return;
         }
         setCurrentConversation(convData);
-        // setSelectedLanguage(convData.language || 'Português'); // Removido
         await fetchMessages(convData.id);
       } else {
         setCurrentConversation(null);
-        setMessages([]);
-        // setSelectedLanguage('Português'); // Removido
-        if (modelData.system_message) {
-          setMessages([{
-            id: 'system-intro',
-            sender: 'ai',
-            content: `Olá! Eu sou ${modelData.model_name || modelData.provider}. ${modelData.system_message}`,
-            created_at: new Date().toISOString(),
-            conversation_id: 'temp',
-          }]);
-        }
+        setMessages([]); // Garante que a tela de boas-vindas seja exibida
       }
       setLoading(false);
     };
     setupChat();
   }, [navigate, modelId, conversationId, fetchConversations, fetchMessages]);
-
-  // Efeito para atualizar o idioma da conversa no DB quando selectedLanguage muda - REMOVIDO
-  // useEffect(() => {
-  //   const updateConversationLanguage = async () => {
-  //     if (currentConversation && user && selectedLanguage !== currentConversation.language) {
-  //       const { error } = await supabase
-  //         .from('ai_conversations')
-  //         .update({ language: selectedLanguage })
-  //         .eq('id', currentConversation.id)
-  //         .eq('user_id', user.id);
-
-  //       if (error) {
-  //         console.error('Error updating conversation language:', error);
-  //         showError('Erro ao salvar o idioma da conversa.');
-  //       } else {
-  //         setCurrentConversation(prev => prev ? { ...prev, language: selectedLanguage } : null);
-  //         showSuccess('Idioma da conversa atualizado!');
-  //       }
-  //     }
-  //   };
-  //   updateConversationLanguage();
-  // }, [selectedLanguage, currentConversation, user]);
-
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,7 +227,6 @@ const AIChat = () => {
           userMessage: userMessageContent,
           conversationId: currentConvId,
           systemMessage: model.system_message,
-          // selectedLanguage: selectedLanguage, // Removido
         },
       });
 
@@ -275,7 +240,6 @@ const AIChat = () => {
           user_id: user.id,
           model_id: model.id,
           title: newConversationTitle,
-          // language: selectedLanguage, // Removido
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -322,7 +286,6 @@ const AIChat = () => {
     setCurrentConversation(null);
     setMessages([]);
     setNewMessage('');
-    // setSelectedLanguage('Português'); // Removido
     navigate(`/ai-chat/${modelId}`);
   };
 
@@ -366,6 +329,47 @@ const AIChat = () => {
     }
   };
 
+  const handleDeleteConversation = async () => {
+    if (!user || !conversationToDeleteId || !modelId) return;
+
+    setLoading(true);
+    try {
+      // 1. Deletar mensagens associadas
+      const { error: deleteMessagesError } = await supabase
+        .from('ai_chat_messages')
+        .delete()
+        .eq('conversation_id', conversationToDeleteId);
+
+      if (deleteMessagesError) throw deleteMessagesError;
+
+      // 2. Deletar a conversa
+      const { error: deleteConversationError } = await supabase
+        .from('ai_conversations')
+        .delete()
+        .eq('id', conversationToDeleteId)
+        .eq('user_id', user.id);
+
+      if (deleteConversationError) throw deleteConversationError;
+
+      showSuccess('Conversa deletada com sucesso!');
+      setIsDeleteConversationDialogOpen(false);
+      setConversationToDeleteId(null);
+      
+      // Se a conversa deletada era a atual, resetar para a tela de boas-vindas
+      if (currentConversation?.id === conversationToDeleteId) {
+        setCurrentConversation(null);
+        setMessages([]);
+        navigate(`/ai-chat/${modelId}`);
+      }
+      fetchConversations(user.id, modelId); // Recarregar a lista de conversas
+    } catch (error: any) {
+      showError(`Erro ao deletar conversa: ${error.message}`);
+      console.error('Error deleting conversation:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -386,6 +390,7 @@ const AIChat = () => {
 
   const aiDisplayName = model.model_name || model.provider;
   const aiAvatarUrl = model.avatar_url;
+  const userDisplayName = profile?.apelido || profile?.nome || user?.email?.split('@')[0] || 'Usuário';
 
   const renderChatContent = () => (
     <Card className="flex-1 flex flex-col overflow-hidden h-full">
@@ -441,66 +446,54 @@ const AIChat = () => {
             )}
           </div>
         </div>
-        {/* REMOVIDO: Seletor de idioma */}
-        {/* <div className="flex items-center gap-2">
-          <Label htmlFor="language-select" className="sr-only">Idioma</Label>
-          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-            <SelectTrigger id="language-select" className="w-[140px]">
-              <SelectValue placeholder="Idioma" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Português">Português</SelectItem>
-              <SelectItem value="English">English</SelectItem>
-              <SelectItem value="Español">Español</SelectItem>
-            </SelectContent>
-          </Select>
-        </div> */}
       </CardHeader>
       <CardContent className="flex-1 p-4 space-y-4 overflow-y-auto h-full">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
             <Bot className="h-16 w-16 mb-4 text-gray-400" />
-            <p className="text-lg">Comece a conversar com {aiDisplayName}!</p>
+            <h2 className="text-3xl font-bold mb-2 text-gray-800">Olá, {userDisplayName}!</h2>
+            <p className="text-lg mb-6">Comece a conversar com {aiDisplayName}.</p>
             <p className="text-sm">Pergunte sobre o ENEM, dicas de estudo ou qualquer coisa que precisar.</p>
           </div>
-        )}
-        {messages.map((message) => {
-          const isCurrentUser = message.sender === 'user';
-          const displayName = isCurrentUser ? (profile?.apelido || profile?.nome || 'Você') : aiDisplayName;
-          const timestamp = new Date(message.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        ) : (
+          messages.map((message) => {
+            const isCurrentUser = message.sender === 'user';
+            const displayName = isCurrentUser ? (profile?.apelido || profile?.nome || 'Você') : aiDisplayName;
+            const timestamp = new Date(message.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-          return (
-            <div
-              key={message.id}
-              className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : ''}`}
-            >
-              {!isCurrentUser && (
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={aiAvatarUrl || ''} alt={aiDisplayName} />
-                  <AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback>
-                </Avatar>
-              )}
-              <div className={`flex flex-col gap-1 ${isCurrentUser ? 'items-end' : 'items-start'}`}>
-                <div
-                  className={`rounded-lg px-3 py-2 max-w-xs md:max-w-md ${
-                    isCurrentUser
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 text-gray-800'
-                  }`}
-                >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            return (
+              <div
+                key={message.id}
+                className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : ''}`}
+              >
+                {!isCurrentUser && (
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={aiAvatarUrl || ''} alt={aiDisplayName} />
+                    <AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback>
+                  </Avatar>
+                )}
+                <div className={`flex flex-col gap-1 ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+                  <div
+                    className={`rounded-lg px-3 py-2 max-w-xs md:max-w-md ${
+                      isCurrentUser
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 text-gray-800'
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                  <p className="text-xs text-gray-500 px-1 mt-1">{displayName}, {timestamp}</p>
                 </div>
-                <p className="text-xs text-gray-500 px-1 mt-1">{displayName}, {timestamp}</p>
+                {isCurrentUser && (
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={profile?.avatar_url || ''} alt={displayName} />
+                    <AvatarFallback>{getInitials(profile?.apelido || profile?.nome)}</AvatarFallback>
+                  </Avatar>
+                )}
               </div>
-              {isCurrentUser && (
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={profile?.avatar_url || ''} alt={displayName} />
-                  <AvatarFallback>{getInitials(profile?.apelido || profile?.nome)}</AvatarFallback>
-                </Avatar>
-              )}
-            </div>
-          );
-        })}
+            );
+          })
+        )}
         {sendingMessage && (
           <div className="flex items-start gap-3">
             <Avatar className="h-8 w-8">
@@ -551,18 +544,30 @@ const AIChat = () => {
           <p className="text-center text-muted-foreground py-4">Nenhuma conversa ainda.</p>
         ) : (
           conversations.map((conv) => (
-            <Button
-              key={conv.id}
-              variant="ghost"
-              className={cn(
-                "w-full justify-start text-left h-auto py-2 px-3",
-                currentConversation?.id === conv.id && "bg-blue-100 hover:bg-blue-200"
-              )}
-              onClick={() => handleSelectConversation(conv.id)}
-            >
-              <MessageSquareText className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span className="truncate">{conv.title}</span>
-            </Button>
+            <div key={conv.id} className="flex items-center justify-between gap-2">
+              <Button
+                variant="ghost"
+                className={cn(
+                  "w-full justify-start text-left h-auto py-2 px-3",
+                  currentConversation?.id === conv.id && "bg-blue-100 hover:bg-blue-200"
+                )}
+                onClick={() => handleSelectConversation(conv.id)}
+              >
+                <MessageSquareText className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">{conv.title}</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="flex-shrink-0"
+                onClick={() => {
+                  setConversationToDeleteId(conv.id);
+                  setIsDeleteConversationDialogOpen(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+            </div>
           ))
         )}
       </div>
@@ -586,6 +591,25 @@ const AIChat = () => {
           </ResizablePanel>
         </ResizablePanelGroup>
       )}
+
+      {/* Diálogo de confirmação de exclusão de conversa */}
+      <Dialog open={isDeleteConversationDialogOpen} onOpenChange={setIsDeleteConversationDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir Conversa</DialogTitle>
+            <DialogDescription>
+              Você tem certeza que deseja excluir esta conversa? Todas as mensagens associadas também serão removidas. Esta ação é irreversível.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteConversationDialogOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDeleteConversation} disabled={loading}>
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
