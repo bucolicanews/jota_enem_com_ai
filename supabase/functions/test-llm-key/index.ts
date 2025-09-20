@@ -55,6 +55,7 @@ serve(async (req) => {
     );
 
     // Fetch the model by ID first, including is_standard and user_id for access check
+    // REMOVIDO: .eq('user_id', user.id) para permitir buscar modelos padrão
     const { data: model, error: dbError } = await serviceClient
       .from('language_models')
       .select('api_key, provider, model_name, model_variant, is_standard, user_id')
