@@ -14,7 +14,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  console.log('Edge Function invoke-llm started.'); // Added log
+  console.log('Edge Function invoke-llm started.');
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -35,26 +35,26 @@ serve(async (req) => {
     // Get the user from the token
     const { data: { user }, error: userAuthError } = await supabaseClient.auth.getUser()
     if (userAuthError) {
-        console.error('User authentication error:', userAuthError); // Added log
+        console.error('User authentication error:', userAuthError);
     }
     if (!user) {
-      console.log('Access denied: No user found.'); // Added log
+      console.log('Access denied: No user found.');
       return new Response(JSON.stringify({ error: 'Não autorizado' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401,
       })
     }
-    console.log('User authenticated:', user.id); // Added log
+    console.log('User authenticated:', user.id);
 
     const { modelId, userMessage } = await req.json()
     if (!modelId || !userMessage) {
-      console.log('Access denied: modelId e userMessage são obrigatórios.'); // Added log
+      console.log('Access denied: modelId e userMessage são obrigatórios.');
       return new Response(JSON.stringify({ error: 'modelId e userMessage são obrigatórios' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       })
     }
-    console.log('Invoking modelId:', modelId); // Added log
+    console.log('Invoking modelId:', modelId);
 
     // Create a service role client to securely fetch the API key and user permissions
     // @ts-ignore: Deno is available in runtime
@@ -66,7 +66,7 @@ serve(async (req) => {
     );
 
     // 1. Fetch user's permission level
-    console.log('Fetching client profile for user:', user.id); // Added log
+    console.log('Fetching client profile for user:', user.id);
     const { data: clientProfile, error: clientProfileError } = await serviceClient
       .from('cliente')
       .select('permissao_id')
@@ -80,7 +80,7 @@ serve(async (req) => {
         status: 403,
       });
     }
-    console.log('Client profile fetched, permissao_id:', clientProfile.permissao_id); // Added log
+    console.log('Client profile fetched, permissao_id:', clientProfile.permissao_id);
 
     const { data: userPermission, error: userPermissionError } = await serviceClient
       .from('permissoes')
@@ -100,24 +100,24 @@ serve(async (req) => {
     const isPro = ['Pro', 'Prof', 'Admin'].includes(permissionName);
     const isProf = ['Prof', 'Admin'].includes(permissionName);
     const isAdmin = permissionName === 'Admin';
-    console.log('User permissions:', { permissionName, isPro, isProf, isAdmin }); // Added log
+    console.log('User permissions:', { permissionName, isPro, isProf, isAdmin });
 
     // 2. Fetch the model by ID, including system_message
-    console.log('Fetching language model for modelId:', modelId); // Added log
+    console.log('Fetching language model for modelId:', modelId);
     const { data: model, error: dbError } = await serviceClient
       .from('language_models')
-      .select('api_key, provider, model_name, model_variant, is_standard, user_id, system_message') // Added system_message
+      .select('api_key, provider, model_name, model_variant, is_standard, user_id, system_message')
       .eq('id', modelId)
       .single()
 
     if (dbError || !model) {
-      console.error('Model not found in DB or DB error:', dbError); // Added log
+      console.error('Model not found in DB or DB error:', dbError);
       return new Response(JSON.stringify({ error: 'Modelo de IA não encontrado.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
       })
     }
-    console.log('Model fetched:', { id: model.id, provider: model.provider, model_variant: model.model_variant, is_standard: model.is_standard, user_id: model.user_id }); // Added log
+    console.log('Model fetched:', { id: model.id, provider: model.provider, model_variant: model.model_variant, is_standard: model.is_standard, user_id: model.user_id });
 
     // 3. Implement Access Logic
     let hasAccess = false;
@@ -125,7 +125,7 @@ serve(async (req) => {
       // Standard models require PRO, Prof, or Admin permission
       if (model.user_id !== null) {
         // Invalid configuration for a standard model
-        console.error(`Configuração inválida: Modelo padrão ${model.id} tem user_id.`); // Added log
+        console.error(`Configuração inválida: Modelo padrão ${model.id} tem user_id.`);
         return new Response(JSON.stringify({ error: 'Configuração inválida do modelo padrão.' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 403,
@@ -138,13 +138,13 @@ serve(async (req) => {
     }
 
     if (!hasAccess) {
-      console.log('Acesso negado ao modelo de IA.'); // Added log
+      console.log('Acesso negado ao modelo de IA.');
       return new Response(JSON.stringify({ error: 'Acesso negado ao modelo de IA.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 403,
       })
     }
-    console.log('Access granted to AI model.'); // Added log
+    console.log('Access granted to AI model.');
 
     const { api_key, provider, model_variant, system_message } = model;
     
@@ -156,11 +156,11 @@ serve(async (req) => {
       messages.push({ role: 'system', content: system_message });
     }
     messages.push({ role: 'user', content: userMessage });
-    console.log('Messages prepared for LLM:', messages); // Added log
+    console.log('Messages prepared for LLM:', messages);
 
     // Invoke the appropriate LLM based on the provider
     if (provider === 'OpenAI') {
-        console.log('Invoking OpenAI model:', model_variant); // Added log
+        console.log('Invoking OpenAI model:', model_variant);
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
@@ -169,7 +169,7 @@ serve(async (req) => {
         if (response.ok) {
             const data = await response.json();
             aiResponse = data.choices[0]?.message?.content || aiResponse;
-            console.log('OpenAI response received.'); // Added log
+            console.log('OpenAI response received.');
         } else {
             const errorData = await response.json();
             console.error('OpenAI API error:', errorData);
@@ -177,7 +177,7 @@ serve(async (req) => {
         }
     } 
     else if (provider === 'Google Gemini') {
-        console.log('Invoking Google Gemini model:', model_variant); // Added log
+        console.log('Invoking Google Gemini model:', model_variant);
         const finalGeminiMessages = [];
         if (system_message) {
             finalGeminiMessages.push({ role: 'user', parts: [{ text: system_message }] });
@@ -193,7 +193,7 @@ serve(async (req) => {
         if (response.ok) {
             const data = await response.json();
             aiResponse = data.candidates[0]?.content?.parts[0]?.text || aiResponse;
-            console.log('Google Gemini response received.'); // Added log
+            console.log('Google Gemini response received.');
         } else {
             const errorData = await response.json();
             console.error('Gemini API error:', errorData);
@@ -201,7 +201,7 @@ serve(async (req) => {
         }
     } 
     else if (provider === 'Anthropic') {
-        console.log('Invoking Anthropic model:', model_variant); // Added log
+        console.log('Invoking Anthropic model:', model_variant);
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': api_key, 'anthropic-version': '2023-06-01' },
@@ -210,7 +210,7 @@ serve(async (req) => {
         if (response.ok) {
             const data = await response.json();
             aiResponse = data.content[0]?.text || aiResponse;
-            console.log('Anthropic response received.'); // Added log
+            console.log('Anthropic response received.');
         } else {
             const errorData = await response.json();
             console.error('Anthropic API error:', errorData);
@@ -218,7 +218,7 @@ serve(async (req) => {
         }
     }
     else if (provider === 'Groq') {
-        console.log('Invoking Groq model:', model_variant); // Added log
+        console.log('Invoking Groq model:', model_variant);
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
@@ -227,7 +227,7 @@ serve(async (req) => {
         if (response.ok) {
             const data = await response.json();
             aiResponse = data.choices[0]?.message?.content || aiResponse;
-            console.log('Groq response received.'); // Added log
+            console.log('Groq response received.');
         } else {
             const errorData = await response.json();
             console.error('Groq API error:', errorData);
@@ -235,7 +235,7 @@ serve(async (req) => {
         }
     }
     else if (provider === 'DeepSeek') {
-        console.log('Invoking DeepSeek model:', model_variant); // Added log
+        console.log('Invoking DeepSeek model:', model_variant);
         const response = await fetch('https://api.deepseek.com/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
@@ -244,7 +244,7 @@ serve(async (req) => {
         if (response.ok) {
             const data = await response.json();
             aiResponse = data.choices[0]?.message?.content || aiResponse;
-            console.log('DeepSeek response received.'); // Added log
+            console.log('DeepSeek response received.');
         } else {
             const errorData = await response.json();
             console.error('DeepSeek API error:', errorData);
@@ -252,13 +252,13 @@ serve(async (req) => {
         }
     }
 
-    console.log('Edge Function invoke-llm finished successfully.'); // Added log
+    console.log('Edge Function invoke-llm finished successfully.');
     return new Response(JSON.stringify({ aiResponse }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
   } catch (error: any) {
-    console.error('Erro interno na função Edge invoke-llm:', error); // Added log
+    console.error('Erro interno na função Edge invoke-llm:', error);
     return new Response(JSON.stringify({ error: `Erro interno: ${error.message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
