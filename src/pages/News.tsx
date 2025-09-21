@@ -4,11 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { NewsCard } from '@/components/NewsCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, Search, XCircle } from 'lucide-react'; // Adicionado Search e XCircle
+import { AlertTriangle, Search, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { checkUserPermissions, UserPermissions } from '@/utils/permissions';
-import { Input } from '@/components/ui/input'; // Importado Input
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Importado Select
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { showError } from '@/utils/toast';
 
 interface NewsItem {
   id: string;
@@ -34,34 +35,49 @@ const News = () => {
   const [filterSource, setFilterSource] = useState('all'); // 'all' ou nome da fonte
 
   const fetchNewsFromDb = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     const { data, error: dbError } = await supabase
       .from('news_items')
       .select('*')
       .order('pub_date', { ascending: false })
-      .limit(50); // Limite para evitar carregar muitos dados de uma vez
+      .limit(50);
 
     if (dbError) {
-      setError('Não foi possível carregar o conteúdo.');
       console.error('DB fetch error:', dbError);
-    } else {
-      setItems(data as NewsItem[]);
+      throw new Error('Não foi possível carregar o conteúdo.');
     }
-    setLoading(false);
+    return data as NewsItem[];
+  }, []);
+
+  const fetchUserData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const permissions = await checkUserPermissions(user.id);
+      return permissions;
+    }
+    return null;
   }, []);
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const permissions = await checkUserPermissions(user.id);
-        setUserPermissions(permissions);
+    const loadPageData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [newsData, permissionsData] = await Promise.all([
+          fetchNewsFromDb(),
+          fetchUserData(),
+        ]);
+        setItems(newsData);
+        setUserPermissions(permissionsData);
+      } catch (err: any) {
+        console.error('Error loading News page data:', err);
+        setError(err.message || 'Ocorreu um erro ao carregar a página.');
+        showError(err.message || 'Ocorreu um erro ao carregar a página.');
+      } finally {
+        setLoading(false);
       }
     };
-    fetchUserData();
-    fetchNewsFromDb();
-  }, [fetchNewsFromDb]);
+    loadPageData();
+  }, [fetchNewsFromDb, fetchUserData]);
 
   // Lógica de filtragem
   const filteredItems = useMemo(() => {
