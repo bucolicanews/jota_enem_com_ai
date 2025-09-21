@@ -15,7 +15,7 @@ import Forum from './pages/Forum';
 import News from './pages/News';
 import AdminNews from './pages/AdminNews';
 import AdminNewsAdmin from './pages/AdminNewsAdmin';
-import ProfileFormAdmin from './pages/ProfileFormAdmin';
+import ProfileFormAdmin from './pages/ProfileFormAdmin11111';
 import AdminRedefinirSenha from './pages/AdminRedefinirSenha';
 import AdminCompanies from './pages/AdminCompanies';
 import AdminPermissoes from './pages/AdminPermissoes';
