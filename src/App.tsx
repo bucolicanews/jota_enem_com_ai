@@ -53,7 +53,7 @@ function App() {
           </MainLayout>
         } />
         <Route path="/noticias" element={
-          <MainLayout title="Notícias e Vídeos">
+          <MainLayout title="Notícias e Vídeos" useContainer={false}> {/* Alterado para useContainer={false} */}
             <ProtectedRoute>
               <News />
             </ProtectedRoute>
