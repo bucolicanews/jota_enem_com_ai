@@ -306,8 +306,38 @@ const Profile = () => {
             {/* Estes campos são apenas para visualização no perfil do usuário comum, não para edição */}
             {canEdit && (
               <>
-                <div>
-                  <h1>Informações Adicionais</h1>
+                <div className="space-y-2">
+                  <Label htmlFor="permissao_id">Permissão</Label>
+                  <Select value={permissaoSelecionadaId} onValueChange={setPermissaoSelecionadaId} disabled={!canEdit}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a permissão" /></SelectTrigger>
+                    <SelectContent>
+                      {permissoes.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cod_empresa">Empresa</Label>
+                  <Select value={empresaSelecionadaId || ''} onValueChange={setEmpresaSelecionadaId} disabled={!canEdit}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+                    <SelectContent>
+                      {empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nivel_dificuldade">Nível de Dificuldade</Label>
+                  <Select value={nivelDificuldade} onValueChange={setNivelDificuldade} disabled={!canEdit}>
+                    <SelectTrigger><SelectValue placeholder="Nível de Dificuldade" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="iniciante">Iniciante</SelectItem>
+                      <SelectItem value="intermediario">Intermediário</SelectItem>
+                      <SelectItem value="avancado">Avançado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch id="bloqueado" checked={bloqueado} onCheckedChange={setBloqueado} disabled={!canEdit} />
+                  <Label htmlFor="bloqueado">Usuário Bloqueado</Label>
                 </div>
               </>
             )}
