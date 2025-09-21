@@ -37,6 +37,7 @@ const News = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all', 'news', 'video'
   const [filterSource, setFilterSource] = useState('all'); // 'all' ou nome da fonte
+  const [filterTitle, setFilterTitle] = useState('all'); // NOVO: filtro por título
 
   const isMobile = useIsMobile();
   const [showSidebar, setShowSidebar] = useState(!isMobile); // Controla a visibilidade da sidebar no mobile
@@ -106,14 +107,26 @@ const News = () => {
       currentFilteredItems = currentFilteredItems.filter(item => item.source === filterSource);
     }
 
+    // NOVO: Filtrar por título
+    if (filterTitle !== 'all') {
+      currentFilteredItems = currentFilteredItems.filter(item => item.title === filterTitle);
+    }
+
     return currentFilteredItems;
-  }, [items, searchTerm, filterType, filterSource]);
+  }, [items, searchTerm, filterType, filterSource, filterTitle]); // Adicionado filterTitle aqui
 
   // Obter todas as fontes únicas para o filtro
   const uniqueSources = useMemo(() => {
     const sources = new Set<string>();
     items.forEach(item => sources.add(item.source));
     return Array.from(sources).sort();
+  }, [items]);
+
+  // NOVO: Obter todos os títulos únicos para o filtro
+  const uniqueTitles = useMemo(() => {
+    const titles = new Set<string>();
+    items.forEach(item => titles.add(item.title));
+    return Array.from(titles).sort();
   }, [items]);
 
   const renderSidebar = () => (
@@ -144,6 +157,16 @@ const News = () => {
             <SelectItem value="all">Todas as Fontes</SelectItem>
             {uniqueSources.map(source => (
               <SelectItem key={source} value={source}>{source}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {/* NOVO: Filtro por Título */}
+        <Select value={filterTitle} onValueChange={setFilterTitle}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Filtrar por Título" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Títulos</SelectItem>
+            {uniqueTitles.map(title => (
+              <SelectItem key={title} value={title}>{title}</SelectItem>
             ))}
           </SelectContent>
         </Select>
