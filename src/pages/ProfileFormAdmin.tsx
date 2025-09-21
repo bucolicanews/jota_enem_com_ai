@@ -12,7 +12,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Pencil, Trash2, Loader2, Shield } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { getPermissionStyle } from '@/utils/permissionStyles';
-import { getPermissaoUsuario } from '@/utils/permissions';
+import { getPermissaoUsuario, requireAdmin } from '@/utils/permissions'; // Importar requireAdmin
 
 interface Permissao {
   id: string;
@@ -25,20 +25,22 @@ interface Empresa {
 }
 
 // Definindo a interface para o perfil do cliente com a estrutura correta
-interface ClienteProfileAdmin {
+interface ClienteProfile { // Renomeado para ClienteProfile para evitar confusão
+  id: string; // Adicionado ID para o perfil que está sendo editado
   nome: string | null;
   apelido: string | null;
   avatar_url: string | null;
-  permissao: Permissao | null; // Corrigido para ser um objeto ou null
+  permissao_id: string | null;
   nivel_dificuldade: string | null;
   cod_empresa: string | null;
-  bloqueado: boolean; // Adicionado
+  bloqueado: boolean;
+  email: string; // Adicionado email para exibição
 }
 
 const ProfileFormAdmin = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const [user, setUser] = useState<User | null>(null);
+  const { id } = useParams<{ id: string }>(); // O ID do usuário a ser editado
+  const [adminUser, setAdminUser] = useState<User | null>(null); // O usuário logado (admin)
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [nome, setNome] = useState('');
@@ -47,13 +49,15 @@ const ProfileFormAdmin = () => {
   const [permissaoNome, setPermissaoNome] = useState<string>('Carregando...');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Novos estados para os campos adicionais
+  // Estados para os campos editáveis pelo admin
+  const [emailDisplay, setEmailDisplay] = useState('');
   const [nivelDificuldade, setNivelDificuldade] = useState('iniciante');
   const [permissaoSelecionadaId, setPermissaoSelecionadaId] = useState('');
   const [empresaSelecionadaId, setEmpresaSelecionadaId] = useState('');
   const [bloqueado, setBloqueado] = useState(false);
   const [permissoes, setPermissoes] = useState<Permissao[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [hasAdminAccess, setHasAdminAccess] = useState(false); // Para verificar se o usuário logado é admin
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return '..';
@@ -65,7 +69,7 @@ const ProfileFormAdmin = () => {
   };
 
   useEffect(() => {
-    const fetchProfileFormAdmin = async () => {
+    const checkAdminAndFetchProfile = async () => {
       setLoading(true);
       const { data: { user: loggedInUser } } = await supabase.auth.getUser();
 
@@ -73,40 +77,63 @@ const ProfileFormAdmin = () => {
         navigate('/login');
         return;
       }
-      setUser(loggedInUser);
+      setAdminUser(loggedInUser);
 
-      const loggedInUserPermission = await getPermissaoUsuario(loggedInUser.id);
-      const ProfileFormAdminIdToFetch = id || loggedInUser.id;
+      const isAdmin = await requireAdmin(loggedInUser.id);
+      setHasAdminAccess(isAdmin);
+
+      if (!isAdmin) {
+        showError('Acesso negado. Apenas administradores podem gerenciar perfis.');
+        navigate('/dashboard');
+        return;
+      }
+
+      if (!id) {
+        showError('ID do perfil não fornecido para edição.');
+        navigate('/admin/profiles'); // Redireciona para a lista de perfis se não houver ID
+        return;
+      }
 
       try {
-        // Fetch do perfil com todos os campos necessários
-        const { data: ProfileFormAdmin, error: ProfileFormAdminError } = await supabase
+        // Fetch do perfil do usuário a ser editado
+        const { data: profile, error: profileError } = await supabase
           .from('cliente')
-          .select('nome, apelido, avatar_url, permissao:permissao_id(id, nome), nivel_dificuldade, cod_empresa, bloqueado') // Adicionado 'bloqueado'
-          .eq('id', ProfileFormAdminIdToFetch)
-          .single<ClienteProfileAdmin>(); // <--- Explicitamente tipando o retorno
+          .select('id, nome, apelido, avatar_url, permissao_id, nivel_dificuldade, cod_empresa, bloqueado, email')
+          .eq('id', id)
+          .single<ClienteProfile>();
 
-        if (ProfileFormAdminError) {
-          console.error('Erro ao carregar perfil:', ProfileFormAdminError);
+        if (profileError) {
+          console.error('Erro ao carregar perfil:', profileError);
           showError('Não foi possível carregar o perfil.');
-          setPermissaoNome(loggedInUserPermission);
           setLoading(false);
           return;
         }
 
-        if (ProfileFormAdmin) {
-          setNome(ProfileFormAdmin.nome || '');
-          setApelido(ProfileFormAdmin.apelido || '');
-          setAvatarUrl(ProfileFormAdmin.avatar_url || '');
-          setNivelDificuldade(ProfileFormAdmin.nivel_dificuldade || 'iniciante');
-          setPermissaoSelecionadaId(ProfileFormAdmin.permissao?.id || '');
-          setEmpresaSelecionadaId(ProfileFormAdmin.cod_empresa || '');
-          setBloqueado(ProfileFormAdmin.bloqueado || false); // Usando a propriedade 'bloqueado'
+        if (profile) {
+          setNome(profile.nome || '');
+          setApelido(profile.apelido || '');
+          setAvatarUrl(profile.avatar_url || '');
+          setEmailDisplay(profile.email || '');
+          setNivelDificuldade(profile.nivel_dificuldade || 'iniciante');
+          setPermissaoSelecionadaId(profile.permissao_id || '');
+          setEmpresaSelecionadaId(profile.cod_empresa || '');
+          setBloqueado(profile.bloqueado || false);
 
-          if (id && ProfileFormAdmin.permissao && ProfileFormAdmin.permissao.nome) {
-            setPermissaoNome(ProfileFormAdmin.permissao.nome);
+          // Buscar nome da permissão para exibição
+          if (profile.permissao_id) {
+            const { data: permissaoData, error: permissaoError } = await supabase
+              .from('permissoes')
+              .select('nome')
+              .eq('id', profile.permissao_id)
+              .single();
+            if (!permissaoError && permissaoData) {
+              setPermissaoNome(permissaoData.nome);
+            } else {
+              console.error('Erro ao buscar nome da permissão:', permissaoError);
+              setPermissaoNome('N/A');
+            }
           } else {
-            setPermissaoNome(loggedInUserPermission);
+            setPermissaoNome('N/A');
           }
         }
 
@@ -127,15 +154,13 @@ const ProfileFormAdmin = () => {
       }
     };
 
-    fetchProfileFormAdmin();
+    checkAdminAndFetchProfile();
   }, [navigate, id]);
 
-  const handleUpdateProfileFormAdmin = async (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!adminUser || !id) return;
     setLoading(true);
-
-    const ProfileFormAdminIdToUpdate = id || user.id;
 
     // Atualiza o perfil na tabela 'cliente'
     const { error } = await supabase
@@ -145,23 +170,25 @@ const ProfileFormAdmin = () => {
         apelido,
         nivel_dificuldade: nivelDificuldade,
         permissao_id: permissaoSelecionadaId,
-        cod_empresa: empresaSelecionadaId,
+        cod_empresa: empresaSelecionadaId || null, // Garante que seja null se vazio
         bloqueado: bloqueado,
-        ativo: !bloqueado,
+        ativo: !bloqueado, // Ativo é o inverso de bloqueado
       })
-      .eq('id', ProfileFormAdminIdToUpdate);
+      .eq('id', id);
 
     if (error) {
       showError('Erro ao atualizar o perfil.');
-      console.error('Error updating ProfileFormAdmin:', error);
+      console.error('Error updating profile:', error);
     } else {
       showSuccess('Perfil atualizado com sucesso!');
+      // Opcional: redirecionar de volta para a lista de perfis ou recarregar
+      // navigate('/admin/profiles');
     }
     setLoading(false);
   };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || event.target.files.length === 0 || !user) {
+    if (!event.target.files || event.target.files.length === 0 || !id) {
       return;
     }
 
@@ -171,7 +198,7 @@ const ProfileFormAdmin = () => {
       return;
     }
     const fileExt = file.name.split('.').pop();
-    const filePath = `${id || user.id}/${Date.now()}.${fileExt}`;
+    const filePath = `${id}/${Date.now()}.${fileExt}`;
 
     setUploading(true);
 
@@ -195,12 +222,11 @@ const ProfileFormAdmin = () => {
       .getPublicUrl(filePath);
 
     const publicUrl = data.publicUrl;
-    const ProfileFormAdminIdToUpdate = id || user.id;
 
     const { error: updateError } = await supabase
       .from('cliente')
       .update({ avatar_url: publicUrl })
-      .eq('id', ProfileFormAdminIdToUpdate);
+      .eq('id', id);
 
     if (updateError) {
       showError('Erro ao salvar a nova foto.');
@@ -213,7 +239,7 @@ const ProfileFormAdmin = () => {
   };
 
   const handleDeleteAvatar = async () => {
-    if (!user || !avatarUrl) return;
+    if (!id || !avatarUrl) return;
 
     const filePath = avatarUrl.split('/avatars/')[1];
     if (!filePath) {
@@ -226,9 +252,8 @@ const ProfileFormAdmin = () => {
       showError('Erro ao deletar a foto.');
       return;
     }
-    const ProfileFormAdminIdToUpdate = id || user.id;
 
-    const { error: updateError } = await supabase.from('cliente').update({ avatar_url: null }).eq('id', ProfileFormAdminIdToUpdate);
+    const { error: updateError } = await supabase.from('cliente').update({ avatar_url: null }).eq('id', id);
     if (updateError) {
       showError('Erro ao remover a foto do perfil.');
     } else {
@@ -238,13 +263,20 @@ const ProfileFormAdmin = () => {
   };
 
   const permissionStyle = getPermissionStyle(permissaoNome);
-  const isMyProfileFormAdmin = !id || id === user?.id;
-  const canEdit = isMyProfileFormAdmin || permissaoNome === 'Admin';
+  const canEdit = hasAdminAccess; // Apenas admins podem editar nesta página
 
-  if (loading && !nome && !apelido) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!hasAdminAccess) {
+    return (
+      <div className="flex justify-center items-center min-h-screen text-center">
+        <p>Você não tem permissão para acessar esta página.</p>
       </div>
     );
   }
@@ -253,8 +285,8 @@ const ProfileFormAdmin = () => {
     <div className="flex justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">{isMyProfileFormAdmin ? 'Meu Perfil' : 'Editar Perfil'}</CardTitle>
-          <CardDescription>Atualize as informações pessoais e de chat.</CardDescription>
+          <CardTitle className="text-2xl">Editar Perfil do Usuário</CardTitle>
+          <CardDescription>Gerencie as informações completas do usuário.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2 flex flex-col items-center mb-6">
@@ -277,7 +309,7 @@ const ProfileFormAdmin = () => {
                 </div>
               )}
             </div>
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/png, image/jpeg" onChange={handleAvatarUpload} disabled={uploading} />
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/png, image/jpeg" onChange={handleAvatarUpload} disabled={uploading || !canEdit} />
           </div>
           <div className={`mb-6 p-3 rounded-lg flex items-center gap-2 border ${permissionStyle.bgColor} ${permissionStyle.borderColor}`}>
             <Shield className={`h-5 w-5 ${permissionStyle.iconColor}`} />
@@ -288,21 +320,21 @@ const ProfileFormAdmin = () => {
               </p>
             </div>
           </div>
-          <form onSubmit={handleUpdateProfileFormAdmin} className="space-y-6">
+          <form onSubmit={handleUpdateProfile} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={user?.email || ''} disabled />
+              <Input id="email" type="email" value={emailDisplay} disabled /> {/* Email é apenas para exibição */}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="nome">Nome Completa</Label>
-              <Input id="nome" type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome completo" disabled={!canEdit} />
+              <Label htmlFor="nome">Nome Completo</Label>
+              <Input id="nome" type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo do usuário" disabled={!canEdit} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="apelido">Apelido (para o chat)</Label>
-              <Input id="apelido" type="text" value={apelido} onChange={(e) => setApelido(e.target.value)} placeholder="Como você quer ser chamado no chat" disabled={!canEdit} />
+              <Input id="apelido" type="text" value={apelido} onChange={(e) => setApelido(e.target.value)} placeholder="Apelido no chat" disabled={!canEdit} />
             </div>
 
-            {/* Campos adicionais */}
+            {/* Campos adicionais - Editáveis apenas por Admin */}
             <div className="space-y-2">
               <Label htmlFor="permissao_id">Permissão</Label>
               <Select value={permissaoSelecionadaId} onValueChange={setPermissaoSelecionadaId} disabled={!canEdit}>
@@ -337,15 +369,13 @@ const ProfileFormAdmin = () => {
               <Label htmlFor="bloqueado">Usuário Bloqueado</Label>
             </div>
 
-            {canEdit && (
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  'Salvar Alterações'
-                )}
-              </Button>
-            )}
+            <Button type="submit" className="w-full" disabled={loading || !canEdit}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                'Salvar Alterações'
+              )}
+            </Button>
           </form>
         </CardContent>
       </Card>

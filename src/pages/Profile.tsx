@@ -3,41 +3,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Removido useParams
 import { showSuccess, showError } from '@/utils/toast';
 import { Pencil, Trash2, Loader2, Shield } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { getPermissionStyle } from '@/utils/permissionStyles';
 import { getPermissaoUsuario } from '@/utils/permissions';
 
-interface Permissao {
-  id: string;
-  nome: string;
-}
-
-interface Empresa {
-  id: string;
-  nome: string;
-}
-
 // Definindo a interface para o perfil do cliente com a estrutura correta
 interface ClienteProfile {
   nome: string | null;
   apelido: string | null;
   avatar_url: string | null;
-  permissao: Permissao | null; // Corrigido para ser um objeto ou null
+  permissao_id: string | null; // Agora apenas o ID da permissão
   nivel_dificuldade: string | null;
   cod_empresa: string | null;
-  bloqueado: boolean; // Adicionado
+  bloqueado: boolean;
 }
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
+  // Removido { id } = useParams(); - este componente é sempre para o próprio usuário
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -47,13 +35,10 @@ const Profile = () => {
   const [permissaoNome, setPermissaoNome] = useState<string>('Carregando...');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Novos estados para os campos adicionais
-  const [nivelDificuldade, setNivelDificuldade] = useState('iniciante');
-  const [permissaoSelecionadaId, setPermissaoSelecionadaId] = useState('');
-  const [empresaSelecionadaId, setEmpresaSelecionadaId] = useState('');
-  const [bloqueado, setBloqueado] = useState(false);
-  const [permissoes, setPermissoes] = useState<Permissao[]>([]);
-  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  // Estados para exibir (somente leitura) os campos restritos
+  const [nivelDificuldadeDisplay, setNivelDificuldadeDisplay] = useState('iniciante');
+  const [empresaNomeDisplay, setEmpresaNomeDisplay] = useState('N/A');
+  const [bloqueadoDisplay, setBloqueadoDisplay] = useState(false);
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return '..';
@@ -75,21 +60,17 @@ const Profile = () => {
       }
       setUser(loggedInUser);
 
-      const loggedInUserPermission = await getPermissaoUsuario(loggedInUser.id);
-      const profileIdToFetch = id || loggedInUser.id;
-
       try {
-        // Fetch do perfil com todos os campos necessários
+        // Fetch do perfil do próprio usuário
         const { data: profile, error: profileError } = await supabase
           .from('cliente')
-          .select('nome, apelido, avatar_url, permissao:permissao_id(id, nome), nivel_dificuldade, cod_empresa, bloqueado') // Adicionado 'bloqueado'
-          .eq('id', profileIdToFetch)
-          .single<ClienteProfile>(); // <--- Explicitamente tipando o retorno
+          .select('nome, apelido, avatar_url, permissao_id, nivel_dificuldade, cod_empresa, bloqueado')
+          .eq('id', loggedInUser.id)
+          .single<ClienteProfile>();
 
         if (profileError) {
           console.error('Erro ao carregar perfil:', profileError);
           showError('Não foi possível carregar o perfil.');
-          setPermissaoNome(loggedInUserPermission);
           setLoading(false);
           return;
         }
@@ -98,27 +79,43 @@ const Profile = () => {
           setNome(profile.nome || '');
           setApelido(profile.apelido || '');
           setAvatarUrl(profile.avatar_url || '');
-          setNivelDificuldade(profile.nivel_dificuldade || 'iniciante');
-          setPermissaoSelecionadaId(profile.permissao?.id || '');
-          setEmpresaSelecionadaId(profile.cod_empresa || '');
-          setBloqueado(profile.bloqueado || false); // Usando a propriedade 'bloqueado'
+          setNivelDificuldadeDisplay(profile.nivel_dificuldade || 'iniciante');
+          setBloqueadoDisplay(profile.bloqueado || false);
 
-          if (id && profile.permissao && profile.permissao.nome) {
-            setPermissaoNome(profile.permissao.nome);
+          // Buscar nome da permissão
+          if (profile.permissao_id) {
+            const { data: permissaoData, error: permissaoError } = await supabase
+              .from('permissoes')
+              .select('nome')
+              .eq('id', profile.permissao_id)
+              .single();
+            if (!permissaoError && permissaoData) {
+              setPermissaoNome(permissaoData.nome);
+            } else {
+              console.error('Erro ao buscar nome da permissão:', permissaoError);
+              setPermissaoNome('Usuário');
+            }
           } else {
-            setPermissaoNome(loggedInUserPermission);
+            setPermissaoNome('Usuário');
+          }
+
+          // Buscar nome da empresa
+          if (profile.cod_empresa) {
+            const { data: empresaData, error: empresaError } = await supabase
+              .from('empresa')
+              .select('nome')
+              .eq('id', profile.cod_empresa)
+              .single();
+            if (!empresaError && empresaData) {
+              setEmpresaNomeDisplay(empresaData.nome);
+            } else {
+              console.error('Erro ao buscar nome da empresa:', empresaError);
+              setEmpresaNomeDisplay('N/A');
+            }
+          } else {
+            setEmpresaNomeDisplay('N/A');
           }
         }
-
-        // Fetch de opções de seleção (permissões e empresas)
-        const { data: permissoesData, error: permissoesError } = await supabase.from('permissoes').select('id, nome');
-        const { data: empresasData, error: empresasError } = await supabase.from('empresa').select('id, nome');
-
-        if (permissoesError) console.error('Erro ao buscar permissões:', permissoesError);
-        else setPermissoes(permissoesData || []);
-
-        if (empresasError) console.error('Erro ao buscar empresas:', empresasError);
-        else setEmpresas(empresasData || []);
 
       } catch (error) {
         console.error('Erro no fetch do perfil:', error);
@@ -128,28 +125,21 @@ const Profile = () => {
     };
 
     fetchProfile();
-  }, [navigate, id]);
+  }, [navigate]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setLoading(true);
 
-    const profileIdToUpdate = id || user.id;
-
-    // Atualiza o perfil na tabela 'cliente'
+    // Atualiza apenas nome, apelido e avatar_url na tabela 'cliente'
     const { error } = await supabase
       .from('cliente')
       .update({
         nome,
         apelido,
-        nivel_dificuldade: nivelDificuldade,
-        permissao_id: permissaoSelecionadaId,
-        cod_empresa: empresaSelecionadaId,
-        bloqueado: bloqueado,
-        ativo: !bloqueado,
       })
-      .eq('id', profileIdToUpdate);
+      .eq('id', user.id);
 
     if (error) {
       showError('Erro ao atualizar o perfil.');
@@ -171,7 +161,7 @@ const Profile = () => {
       return;
     }
     const fileExt = file.name.split('.').pop();
-    const filePath = `${id || user.id}/${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
     setUploading(true);
 
@@ -195,12 +185,11 @@ const Profile = () => {
       .getPublicUrl(filePath);
 
     const publicUrl = data.publicUrl;
-    const profileIdToUpdate = id || user.id;
 
     const { error: updateError } = await supabase
       .from('cliente')
       .update({ avatar_url: publicUrl })
-      .eq('id', profileIdToUpdate);
+      .eq('id', user.id);
 
     if (updateError) {
       showError('Erro ao salvar a nova foto.');
@@ -226,9 +215,8 @@ const Profile = () => {
       showError('Erro ao deletar a foto.');
       return;
     }
-    const profileIdToUpdate = id || user.id;
 
-    const { error: updateError } = await supabase.from('cliente').update({ avatar_url: null }).eq('id', profileIdToUpdate);
+    const { error: updateError } = await supabase.from('cliente').update({ avatar_url: null }).eq('id', user.id);
     if (updateError) {
       showError('Erro ao remover a foto do perfil.');
     } else {
@@ -238,8 +226,8 @@ const Profile = () => {
   };
 
   const permissionStyle = getPermissionStyle(permissaoNome);
-  const isMyProfile = !id || id === user?.id;
-  const canEdit = isMyProfile || permissaoNome === 'Admin';
+  // canEdit é sempre true para o próprio usuário
+  const canEdit = true; 
 
   if (loading && !nome && !apelido) {
     return (
@@ -253,8 +241,8 @@ const Profile = () => {
     <div className="flex justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">{isMyProfile ? 'Meu Perfil' : 'Editar Perfil'}</CardTitle>
-          <CardDescription>Atualize as informações pessoais e de chat.</CardDescription>
+          <CardTitle className="text-2xl">Meu Perfil</CardTitle>
+          <CardDescription>Atualize suas informações pessoais e de chat.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2 flex flex-col items-center mb-6">
@@ -302,55 +290,27 @@ const Profile = () => {
               <Input id="apelido" type="text" value={apelido} onChange={(e) => setApelido(e.target.value)} placeholder="Como você quer ser chamado no chat" disabled={!canEdit} />
             </div>
 
-            {/* Campos adicionais */}
-            {/* Estes campos são apenas para visualização no perfil do usuário comum, não para edição */}
-            {canEdit && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="permissao_id">Permissão</Label>
-                  <Select value={permissaoSelecionadaId} onValueChange={setPermissaoSelecionadaId} disabled={!canEdit}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a permissão" /></SelectTrigger>
-                    <SelectContent>
-                      {permissoes.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cod_empresa">Empresa</Label>
-                  <Select value={empresaSelecionadaId || ''} onValueChange={setEmpresaSelecionadaId} disabled={!canEdit}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
-                    <SelectContent>
-                      {empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="nivel_dificuldade">Nível de Dificuldade</Label>
-                  <Select value={nivelDificuldade} onValueChange={setNivelDificuldade} disabled={!canEdit}>
-                    <SelectTrigger><SelectValue placeholder="Nível de Dificuldade" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="iniciante">Iniciante</SelectItem>
-                      <SelectItem value="intermediario">Intermediário</SelectItem>
-                      <SelectItem value="avancado">Avançado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="bloqueado" checked={bloqueado} onCheckedChange={setBloqueado} disabled={!canEdit} />
-                  <Label htmlFor="bloqueado">Usuário Bloqueado</Label>
-                </div>
-              </>
-            )}
+            {/* Campos adicionais (somente leitura para usuários comuns) */}
+            <div className="space-y-2">
+              <Label htmlFor="nivel_dificuldade_display">Nível de Dificuldade</Label>
+              <Input id="nivel_dificuldade_display" value={nivelDificuldadeDisplay} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="empresa_display">Empresa</Label>
+              <Input id="empresa_display" value={empresaNomeDisplay} disabled />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch id="bloqueado_display" checked={bloqueadoDisplay} disabled />
+              <Label htmlFor="bloqueado_display">Usuário Bloqueado</Label>
+            </div>
 
-            {canEdit && (
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  'Salvar Alterações'
-                )}
-              </Button>
-            )}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                'Salvar Alterações'
+              )}
+            </Button>
           </form>
         </CardContent>
       </Card>

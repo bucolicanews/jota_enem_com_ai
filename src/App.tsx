@@ -45,6 +45,7 @@ function App() {
             </ProtectedRoute>
           </MainLayout>
         } />
+        {/* Rota para o perfil do próprio usuário (todos os níveis de permissão) */}
         <Route path="/perfil" element={
           <MainLayout title="Meu Perfil">
             <ProtectedRoute>
@@ -53,7 +54,7 @@ function App() {
           </MainLayout>
         } />
         <Route path="/noticias" element={
-          <MainLayout title="Notícias e Vídeos" useContainer={false}> {/* Alterado para useContainer={false} */}
+          <MainLayout title="Notícias e Vídeos" useContainer={false}>
             <ProtectedRoute>
               <News />
             </ProtectedRoute>
@@ -186,34 +187,15 @@ function App() {
             </ProtectedRoute>
           </MainLayout>
         } />
-        <Route path="/admin/profiles" element={
-          <MainLayout title="Admin - Perfis">
-            <ProtectedRoute requiredPermission="Admin">
-              <Profile />
-            </ProtectedRoute>
-          </MainLayout>
-        } />
+        {/* Rota para administradores editarem perfis de outros usuários */}
         <Route path="/admin/profiles/:id" element={
           <MainLayout title="Admin - Editar Perfil">
             <ProtectedRoute requiredPermission="Admin">
-              <Profile />
-            </ProtectedRoute>
-          </MainLayout>
-        } />
-        <Route path="/admin/ProfileFormAdmin" element={
-          <MainLayout title="Admin - Perfis">
-            <ProtectedRoute requiredPermission="Admin">
               <ProfileFormAdmin />
             </ProtectedRoute>
           </MainLayout>
         } />
-        <Route path="/admin/ProfileFormAdmin/:id" element={
-          <MainLayout title="Admin - Editar Perfil">
-            <ProtectedRoute requiredPermission="Admin">
-              <ProfileFormAdmin />
-            </ProtectedRoute>
-          </MainLayout>
-        } />
+        {/* Removida a rota /admin/ProfileFormAdmin e /admin/ProfileFormAdmin/:id, pois /admin/profiles/:id agora usa ProfileFormAdmin.tsx */}
           <Route path="/admin/redefinir-senha" element={
           <MainLayout title="Admin - Redefinir Senha">
             <ProtectedRoute requiredPermission="Admin">

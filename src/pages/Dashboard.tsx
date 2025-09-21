@@ -57,21 +57,6 @@ const Dashboard = () => {
           </Card>
         </Link>
 
-        {/* Card Meu Perfil */}
-        <Link to="/perfil" className="transform hover:-translate-y-1 transition-transform duration-300">
-          <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-semibold">Meu Perfil</CardTitle>
-              <UserIcon className="h-5 w-5 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Gerencie suas informações e configurações.
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
         {/* Card Minhas Chaves de IA (AGORA PARA TODOS) */}
         <Link to="/language-models" className="transform hover:-translate-y-1 transition-transform duration-300">
           <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
@@ -120,6 +105,20 @@ const Dashboard = () => {
         {/* ========================================= */}
         {/* === Cards Específicos para Free e superiores === */}
         {/* ========================================= */}
+        {/* Card Meu Perfil */}
+        <Link to="/perfilFree" className="transform hover:-translate-y-1 transition-transform duration-300">
+          <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base font-semibold">Meu Perfil</CardTitle>
+              <UserIcon className="h-5 w-5 text-purple-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Gerencie suas informações e configurações.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
         {userPermissions?.isFree && (
           <Link to="/forumfree" className="transform hover:-translate-y-1 transition-transform duration-300">
             <Card className="bg-green-100 hover:bg-red-200 h-full hover:shadow-xl transition-shadow duration-300">
