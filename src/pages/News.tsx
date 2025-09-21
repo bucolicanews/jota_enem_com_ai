@@ -1,12 +1,14 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { NewsCard } from '@/components/NewsCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Search, XCircle } from 'lucide-react'; // Adicionado Search e XCircle
 import { Badge } from '@/components/ui/badge';
 import { checkUserPermissions, UserPermissions } from '@/utils/permissions';
+import { Input } from '@/components/ui/input'; // Importado Input
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Importado Select
 
 interface NewsItem {
   id: string;
@@ -26,6 +28,11 @@ const News = () => {
   const [error, setError] = useState<string | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
 
+  // Estados para os filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all'); // 'all', 'news', 'video'
+  const [filterSource, setFilterSource] = useState('all'); // 'all' ou nome da fonte
+
   const fetchNewsFromDb = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -33,7 +40,7 @@ const News = () => {
       .from('news_items')
       .select('*')
       .order('pub_date', { ascending: false })
-      .limit(50);
+      .limit(50); // Limite para evitar carregar muitos dados de uma vez
 
     if (dbError) {
       setError('Não foi possível carregar o conteúdo.');
@@ -56,8 +63,38 @@ const News = () => {
     fetchNewsFromDb();
   }, [fetchNewsFromDb]);
 
+  // Lógica de filtragem
+  const filteredItems = useMemo(() => {
+    let currentFilteredItems = items;
+
+    if (searchTerm) {
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      currentFilteredItems = currentFilteredItems.filter(item =>
+        item.title.toLowerCase().includes(lowerCaseSearchTerm) ||
+        item.description.toLowerCase().includes(lowerCaseSearchTerm)
+      );
+    }
+
+    if (filterType !== 'all') {
+      currentFilteredItems = currentFilteredItems.filter(item => item.type === filterType);
+    }
+
+    if (filterSource !== 'all') {
+      currentFilteredItems = currentFilteredItems.filter(item => item.source === filterSource);
+    }
+
+    return currentFilteredItems;
+  }, [items, searchTerm, filterType, filterSource]);
+
+  // Obter todas as fontes únicas para o filtro
+  const uniqueSources = useMemo(() => {
+    const sources = new Set<string>();
+    items.forEach(item => sources.add(item.source));
+    return Array.from(sources).sort();
+  }, [items]);
+
   return (
-    <main className="space-y-8">
+    <main className="space-y-8 p-4 md:p-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
         <h1 className="text-3xl font-bold">Conteúdo do JOTA ENEM</h1>
         {userPermissions?.isProf && (
@@ -73,6 +110,39 @@ const News = () => {
       <p className="text-xl text-gray-600 mb-8">
         Fique por dentro das últimas notícias, dicas e vídeos sobre o ENEM.
       </p>
+
+      {/* Seção de Filtros */}
+      <Card className="mb-6">
+        <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative w-full md:flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar por título ou descrição..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full"
+            />
+          </div>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Filtrar por Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Tipos</SelectItem>
+              <SelectItem value="news">Notícia</SelectItem>
+              <SelectItem value="video">Vídeo</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterSource} onValueChange={setFilterSource}>
+            <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Filtrar por Fonte" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as Fontes</SelectItem>
+              {uniqueSources.map(source => (
+                <SelectItem key={source} value={source}>{source}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       {loading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -96,16 +166,17 @@ const News = () => {
         </Alert>
       )}
 
-      {!loading && !error && items.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Nenhum conteúdo encontrado.</p>
-          <p className="text-sm text-muted-foreground">Entre em contato com o administrador para adicionar notícias.</p>
+      {!loading && !error && filteredItems.length === 0 && (
+        <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-12">
+          <XCircle className="h-12 w-12 mb-4 text-gray-400" />
+          <p>Nenhum conteúdo encontrado com os filtros aplicados.</p>
+          <p className="text-sm text-muted-foreground">Tente ajustar sua busca ou filtros.</p>
         </div>
       )}
 
-      {!loading && items.length > 0 && (
+      {!loading && filteredItems.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <div key={item.id} className="relative">
               <Badge 
                 className={`absolute top-2 right-2 z-10 text-xs px-2 py-1 ${item.type === 'video' ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'}`}
