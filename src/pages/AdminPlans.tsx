@@ -356,7 +356,7 @@ const AdminPlans = () => {
                   <TableHead>Redações</TableHead>
                   <TableHead>Simulados</TableHead>
                   <TableHead>Usuários Add.</TableHead>
-                  <TableHead className="text-right">Ações</TableHead> {/* Removidas colunas de ID do Stripe */}
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
