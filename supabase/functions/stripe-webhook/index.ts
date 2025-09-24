@@ -1,9 +1,9 @@
 // @ts-ignore: Deno imports are valid in runtime
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 // @ts-ignore: ESM imports are valid in runtime
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 // @ts-ignore: ESM imports are valid in runtime
-import Stripe from "https://esm.sh/stripe@16.2.0?target=deno";
+import Stripe from "https://esm.sh/stripe@14.0.0"; // Alterado para v14.0.0 e removido ?target=deno
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
