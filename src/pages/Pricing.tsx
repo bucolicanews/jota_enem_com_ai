@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, Crown, DollarSign, Users, MessageSquareText, FileText, Target } from 'lucide-react';
@@ -10,11 +10,14 @@ import { loadStripe } from '@stripe/stripe-js';
 
 // Make sure to call loadStripe outside of a component’s render to avoid
 // recreating the Stripe object on every render.
-const stripePromise = loadStripe(import.meta.env.VITE_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+const stripePromise = loadStripe(import.meta.env.VITE_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 interface Plano {
   id: string;
   nome: string;
+  id_stripe_product: string | null;
+  id_stripe_price_monthly: string | null;
+  id_stripe_price_one_time: string | null;
   tipo: 'recorrente' | 'pre_pago';
   preco: number;
   limite_perguntas: number;
@@ -25,10 +28,12 @@ interface Plano {
 
 const Pricing = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [plans, setPlans] = useState<Plano[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null); // Supabase User
   const [userPlanId, setUserPlanId] = useState<string | null>(null);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
 
   const fetchPlans = useCallback(async () => {
     setLoading(true);
@@ -69,6 +74,23 @@ const Pricing = () => {
     getUserAndPlan();
   }, [fetchPlans]);
 
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const canceled = searchParams.get('canceled');
+    const sessionId = searchParams.get('session_id');
+
+    if (success) {
+      showSuccess('Pagamento realizado com sucesso! Seu plano será ativado em breve.');
+      // In a real app, you'd verify the session_id with Stripe and update user's plan via webhook
+      navigate('/dashboard', { replace: true });
+    }
+
+    if (canceled) {
+      showError('Pagamento cancelado. Você pode tentar novamente.');
+      navigate('/pricing', { replace: true });
+    }
+  }, [searchParams, navigate]);
+
   const handleSubscribe = async (plan: Plano) => {
     if (!user) {
       showError('Você precisa estar logado para assinar um plano.');
@@ -76,40 +98,29 @@ const Pricing = () => {
       return;
     }
 
+    setIsCheckoutLoading(true);
     showSuccess(`Iniciando checkout para o plano ${plan.nome}...`);
-    // In a real application, you would redirect to a checkout page
-    // or open a Stripe Checkout session.
-    // For now, we'll simulate a successful subscription.
 
-    // This is where you would call your Edge Function to create a Stripe Checkout Session
-    // For example:
-    // const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-    //   body: {
-    //     planId: plan.id,
-    //     userId: user.id,
-    //     returnUrl: window.location.origin + '/dashboard',
-    //   },
-    // });
-    // if (error) {
-    //   showError('Erro ao iniciar o checkout.');
-    //   console.error('Checkout error:', error);
-    //   return;
-    // }
-    // window.location.href = data.checkoutUrl; // Redirect to Stripe Checkout
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: {
+          planoId: plan.id,
+          returnUrl: window.location.origin + '/pricing', // URL para onde o Stripe redirecionará
+        },
+      });
 
-    // For demonstration, simulate success:
-    showSuccess(`Assinatura para ${plan.nome} processada com sucesso! (Simulado)`);
-    // Update user's plan in DB (this would normally happen via webhook)
-    const { error: updateError } = await supabase
-      .from('cliente')
-      .update({ plano_id: plan.id, assinatura_ativa: plan.tipo === 'recorrente' })
-      .eq('id', user.id);
+      if (error) throw new Error(error.message);
 
-    if (updateError) {
-      console.error('Simulated plan update error:', updateError);
-    } else {
-      setUserPlanId(plan.id);
-      navigate('/dashboard');
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl; // Redirect to Stripe Checkout
+      } else {
+        showError('Não foi possível obter a URL de checkout.');
+      }
+    } catch (err: any) {
+      showError(`Erro ao iniciar o checkout: ${err.message}`);
+      console.error('Checkout error:', err);
+    } finally {
+      setIsCheckoutLoading(false);
     }
   };
 
@@ -166,8 +177,9 @@ const Pricing = () => {
                 <Button
                   className="w-full mt-6"
                   onClick={() => handleSubscribe(plan)}
-                  disabled={isCurrentPlan}
+                  disabled={isCurrentPlan || isCheckoutLoading}
                 >
+                  {isCheckoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isCurrentPlan ? 'Plano Atual' : 'Assinar Agora'}
                 </Button>
               </CardContent>
