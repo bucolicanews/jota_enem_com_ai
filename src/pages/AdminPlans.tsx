@@ -205,8 +205,8 @@ const AdminPlans = () => {
         .eq('id', planId)
         .single();
 
-      if (fetchError || !planToDelete) {
-        throw new Error('Erro ao buscar plano para exclusão.');
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means "no rows found"
+        throw new Error(`Erro ao buscar plano para exclusão: ${fetchError.message}`);
       }
 
       // TODO: In a real scenario, you might want to deactivate the Stripe product
@@ -343,6 +343,9 @@ const AdminPlans = () => {
                   <TableHead>Redações</TableHead>
                   <TableHead>Simulados</TableHead>
                   <TableHead>Usuários Add.</TableHead>
+                  <TableHead>ID Stripe Prod.</TableHead>
+                  <TableHead>ID Stripe Mensal</TableHead>
+                  <TableHead>ID Stripe Único</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -356,6 +359,9 @@ const AdminPlans = () => {
                     <TableCell>{plan.limite_redacoes}</TableCell>
                     <TableCell>{plan.limite_simulados}</TableCell>
                     <TableCell>{plan.limite_usuarios_adicionais}</TableCell>
+                    <TableCell className="text-xs max-w-[80px] truncate">{plan.id_stripe_product || '-'}</TableCell>
+                    <TableCell className="text-xs max-w-[80px] truncate">{plan.id_stripe_price_monthly || '-'}</TableCell>
+                    <TableCell className="text-xs max-w-[80px] truncate">{plan.id_stripe_price_one_time || '-'}</TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="icon" onClick={() => handleEditClick(plan)}>
                         <Pencil className="h-4 w-4 text-blue-500" />
