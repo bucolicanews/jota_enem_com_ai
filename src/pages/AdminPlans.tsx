@@ -261,6 +261,19 @@ const AdminPlans = () => {
           <CardDescription>
             {editMode ? 'Atualize os detalhes do plano existente.' : 'Crie um novo plano de assinatura ou pré-pago.'}
           </CardDescription>
+          <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-md">
+            <p className="font-semibold mb-2">Atenção:</p>
+            <p className="text-sm">
+              Para que a integração com o Stripe funcione, você precisa configurar as seguintes variáveis de ambiente no seu projeto Supabase:
+            </p>
+            <ul className="list-disc list-inside text-sm mt-2">
+              <li>`STRIPE_SECRET_KEY` (Sua chave secreta do Stripe)</li>
+              <li>`STRIPE_WEBHOOK_SECRET` (O segredo do webhook do Stripe para `stripe-webhook`)</li>
+            </ul>
+            <p className="text-sm mt-2">
+              Você pode configurá-las em <a href="https://supabase.com/dashboard/project/yveobskzyejuaixqsgid/settings/edge-functions" target="_blank" rel="noopener noreferrer" className="underline text-yellow-600 hover:text-yellow-800">Supabase Dashboard &gt; Edge Functions &gt; Manage Secrets</a>.
+            </p>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -343,10 +356,7 @@ const AdminPlans = () => {
                   <TableHead>Redações</TableHead>
                   <TableHead>Simulados</TableHead>
                   <TableHead>Usuários Add.</TableHead>
-                  <TableHead>ID Stripe Prod.</TableHead>
-                  <TableHead>ID Stripe Mensal</TableHead>
-                  <TableHead>ID Stripe Único</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="text-right">Ações</TableHead> {/* Removidas colunas de ID do Stripe */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -359,9 +369,6 @@ const AdminPlans = () => {
                     <TableCell>{plan.limite_redacoes}</TableCell>
                     <TableCell>{plan.limite_simulados}</TableCell>
                     <TableCell>{plan.limite_usuarios_adicionais}</TableCell>
-                    <TableCell className="text-xs max-w-[80px] truncate">{plan.id_stripe_product || '-'}</TableCell>
-                    <TableCell className="text-xs max-w-[80px] truncate">{plan.id_stripe_price_monthly || '-'}</TableCell>
-                    <TableCell className="text-xs max-w-[80px] truncate">{plan.id_stripe_price_one_time || '-'}</TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="icon" onClick={() => handleEditClick(plan)}>
                         <Pencil className="h-4 w-4 text-blue-500" />
