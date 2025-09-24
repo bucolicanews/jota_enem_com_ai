@@ -25,10 +25,10 @@ serve(async (req) => {
     // @ts-ignore: Deno is available in runtime
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     // @ts-ignore: Deno is available in runtime
-    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY'); // Removido '?? '' para garantir que seja undefined se não estiver presente
+    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY'); 
 
     console.log('SUPABASE_URL:', supabaseUrl ? 'Configured' : 'NOT CONFIGURED');
-    console.log('STRIPE_SECRET_KEY:', stripeSecretKey ? 'Configured' : 'NOT CONFIGURED');
+    console.log('STRIPE_SECRET_KEY (raw value from Deno.env.get):', stripeSecretKey); // NOVO LOG DE DEBUG
 
     if (!stripeSecretKey) {
       console.error('STRIPE_SECRET_KEY is not set in environment variables.');
