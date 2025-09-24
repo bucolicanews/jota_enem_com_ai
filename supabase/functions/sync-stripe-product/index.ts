@@ -28,7 +28,7 @@ serve(async (req) => {
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY'); 
 
     console.log('SUPABASE_URL:', supabaseUrl ? 'Configured' : 'NOT CONFIGURED');
-    console.log('STRIPE_SECRET_KEY (raw value from Deno.env.get):', stripeSecretKey); // NOVO LOG DE DEBUG
+    console.log('STRIPE_SECRET_KEY (raw value from Deno.env.get):', stripeSecretKey ? 'Configured' : 'NOT CONFIGURED'); // Log de debug atualizado
 
     if (!stripeSecretKey) {
       console.error('STRIPE_SECRET_KEY is not set in environment variables.');
@@ -250,7 +250,7 @@ serve(async (req) => {
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
-    });
+    })
 
   } catch (error: any) {
     console.error('Error in sync-stripe-product Edge Function:', error.message);
