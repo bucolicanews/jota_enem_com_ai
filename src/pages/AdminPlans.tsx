@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { showSuccess, showError } from '@/utils/toast';
-import { Loader2, PlusCircle, Pencil, Trash2, ShieldAlert, RefreshCw } from 'lucide-react';
+import { Loader2, PlusCircle, Pencil, Trash2, ShieldAlert, RefreshCw, XCircle } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { requireAdmin } from '@/utils/permissions';
 
@@ -132,28 +132,59 @@ const AdminPlans = () => {
     };
 
     let error = null;
+    let planoId = currentPlan?.id;
+
     if (editMode && currentPlan) {
-      // Update existing plan
+      // Update existing plan in Supabase
       const { error: updateError } = await supabase
         .from('planos')
         .update(planData)
         .eq('id', currentPlan.id);
       error = updateError;
     } else {
-      // Insert new plan
-      const { error: insertError } = await supabase
+      // Insert new plan into Supabase
+      const { data: insertData, error: insertError } = await supabase
         .from('planos')
-        .insert(planData);
+        .insert(planData)
+        .select('id')
+        .single();
       error = insertError;
+      if (insertData) {
+        planoId = insertData.id;
+      }
     }
 
     if (error) {
-      showError(`Erro ao ${editMode ? 'atualizar' : 'adicionar'} plano: ${error.message}`);
+      showError(`Erro ao ${editMode ? 'atualizar' : 'adicionar'} plano no Supabase: ${error.message}`);
       console.error('Submit plan error:', error);
-    } else {
-      showSuccess(`Plano ${editMode ? 'atualizado' : 'adicionado'} com sucesso!`);
-      resetForm();
-      fetchPlans();
+      setIsSubmitting(false);
+      return;
+    }
+
+    // If Supabase update/insert is successful, synchronize with Stripe
+    if (planoId) {
+      try {
+        const { data: stripeSyncData, error: stripeSyncError } = await supabase.functions.invoke('sync-stripe-product', {
+          body: {
+            planoId: planoId,
+            nome: planData.nome,
+            tipo: planData.tipo,
+            preco: planData.preco,
+          },
+        });
+
+        if (stripeSyncError) {
+          throw new Error(stripeSyncError.message);
+        }
+
+        showSuccess(`Plano ${editMode ? 'atualizado' : 'adicionado'} e sincronizado com Stripe!`);
+        resetForm();
+        fetchPlans();
+      } catch (stripeError: any) {
+        showError(`Erro ao sincronizar com Stripe: ${stripeError.message}`);
+        console.error('Stripe sync error:', stripeError);
+        // Optionally, you might want to revert the Supabase change or mark it for manual sync
+      }
     }
     setIsSubmitting(false);
   };
@@ -167,6 +198,21 @@ const AdminPlans = () => {
 
     setIsSubmitting(true);
     try {
+      // First, fetch the plan to get Stripe product/price IDs
+      const { data: planToDelete, error: fetchError } = await supabase
+        .from('planos')
+        .select('id_stripe_product')
+        .eq('id', planId)
+        .single();
+
+      if (fetchError || !planToDelete) {
+        throw new Error('Erro ao buscar plano para exclusão.');
+      }
+
+      // TODO: In a real scenario, you might want to deactivate the Stripe product
+      // or handle subscriptions linked to it before deleting from Supabase.
+      // For now, we only delete from Supabase.
+
       const { error } = await supabase
         .from('planos')
         .delete()

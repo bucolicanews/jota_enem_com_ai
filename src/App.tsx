@@ -241,7 +241,7 @@ function App() {
             </ProtectedRoute>
           </MainLayout>
         } />
-        <Route path="/admin/plans" element={ {/* Nova rota para AdminPlans */}
+        <Route path="/admin/plans" element={
           <MainLayout title="Admin - Planos">
             <ProtectedRoute requiredPermission="Admin">
               <AdminPlans />
