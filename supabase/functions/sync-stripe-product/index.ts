@@ -29,6 +29,7 @@ serve(async (req) => {
 
     console.log('SUPABASE_URL:', supabaseUrl ? 'Configured' : 'NOT CONFIGURED');
     console.log('STRIPE_SECRET_KEY (raw value from Deno.env.get):', stripeSecretKey ? 'Configured' : 'NOT CONFIGURED'); // Log de debug atualizado
+    console.log('STRIPE_SECRET_KEY (first 5 chars):', stripeSecretKey ? stripeSecretKey.substring(0, 5) : 'NOT CONFIGURED'); // Novo log para verificar o valor
 
     if (!stripeSecretKey) {
       console.error('STRIPE_SECRET_KEY is not set in environment variables.');
