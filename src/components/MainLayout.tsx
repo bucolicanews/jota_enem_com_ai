@@ -1,10 +1,12 @@
 import { Outlet } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { UserNav } from './UserNav';
-import { ArrowLeft, Home, User, MessageSquare, BookOpen, Newspaper, Settings, KeyRound } from 'lucide-react';
-import React from 'react';
+import { ArrowLeft, Home, User, MessageSquare, BookOpen, Newspaper, Settings, KeyRound, DollarSign, Shield } from 'lucide-react'; // Added DollarSign and Shield
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client'; // Import supabase
+import { checkUserPermissions } from '@/utils/permissions'; // Import checkUserPermissions
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -16,6 +18,20 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children, title, showBackButton = true, actions, useContainer = true }: MainLayoutProps) => {
   const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const permissions = await checkUserPermissions(user.id);
+        setIsAdmin(permissions.isAdmin);
+      } else {
+        setIsAdmin(false);
+      }
+    };
+    checkAdminStatus();
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-gray-100 overflow-x-hidden">
@@ -41,11 +57,16 @@ export const MainLayout = ({ children, title, showBackButton = true, actions, us
                 <Newspaper className="h-4 w-4" />
                 Notícias
               </Button>
-              {/* Removido Fórum e Chat */}
               <Button variant="ghost" size="sm" onClick={() => navigate('/language-models')} className="gap-2">
                 <KeyRound className="h-4 w-4" />
                 Minhas Chaves de IA
               </Button>
+              {isAdmin && (
+                <Button variant="ghost" size="sm" onClick={() => navigate('/admin/plans')} className="gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Gerenciar Planos
+                </Button>
+              )}
             </nav>
           </div>
 

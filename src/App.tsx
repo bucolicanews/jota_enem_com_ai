@@ -29,6 +29,8 @@ import AdminQuestions from './pages/AdminQuestions'; // Importar a nova página 
 import QuestionBank from './pages/QuestionBank'; // Importar a nova página de banco de questões
 import TakeTest from './pages/TakeTest'; // Importar a nova página de realização de prova
 import UserTests from './pages/UserTests'; // Importar a nova página de lista de provas do usuário
+import Pricing from './pages/Pricing'; // Importar a nova página de planos
+import AdminPlans from './pages/AdminPlans'; // Importar a nova página de administração de planos
 
 function App() {
   return (
@@ -37,6 +39,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<UpdatePassword />} />
+        <Route path="/pricing" element={<Pricing />} /> {/* Nova rota para a página de planos */}
         
         <Route path="/dashboard" element={
           <MainLayout title="Dashboard">
@@ -235,6 +238,13 @@ function App() {
           <MainLayout title="Admin - Questões">
             <ProtectedRoute requiredPermission="Prof"> {/* Acesso para Prof e Admin */}
               <AdminQuestions />
+            </ProtectedRoute>
+          </MainLayout>
+        } />
+        <Route path="/admin/plans" element={ {/* Nova rota para AdminPlans */}
+          <MainLayout title="Admin - Planos">
+            <ProtectedRoute requiredPermission="Admin">
+              <AdminPlans />
             </ProtectedRoute>
           </MainLayout>
         } />
