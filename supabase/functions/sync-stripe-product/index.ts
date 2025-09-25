@@ -13,9 +13,12 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log('--- sync-stripe-product function invoked ---'); // Log de início da função
+  console.log('--- Edge Function sync-stripe-product START ---'); // Log de início absoluto da função
+  console.log('Request Method:', req.method);
+  console.log('Request Headers:', req.headers);
 
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request.');
     return new Response('ok', { headers: corsHeaders });
   }
 
@@ -57,6 +60,8 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
+    console.log('Token extraído (primeiros 10 caracteres):', token.substring(0, 10) + '...');
+
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
@@ -242,7 +247,7 @@ serve(async (req) => {
     }
     console.log('Plano do Supabase atualizado com sucesso com os IDs do Stripe.');
 
-    console.log('Edge Function sync-stripe-product finalizada com sucesso.');
+    console.log('--- Edge Function sync-stripe-product END (Success) ---');
     return new Response(JSON.stringify({
       success: true,
       message: 'Plano sincronizado com Stripe com sucesso',
@@ -255,10 +260,12 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
-    console.error('Erro na função Edge sync-stripe-product:', error.message);
+    console.error('--- Edge Function sync-stripe-product END (Error) ---');
+    console.error('Erro na função Edge sync-stripe-product (catch externo):', error.message);
+    // Retorna um erro 500 com a mensagem de erro para o cliente
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
   }
-})
+});
