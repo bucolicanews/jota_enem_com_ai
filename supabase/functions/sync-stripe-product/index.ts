@@ -13,11 +13,11 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('--- sync-stripe-product function invoked ---'); // Log de início da função
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
-
-  console.log('Edge Function sync-stripe-product started.');
 
   try {
     // @ts-ignore: Deno is available in runtime
@@ -27,11 +27,13 @@ serve(async (req) => {
     // @ts-ignore: Deno is available in runtime
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY'); 
 
-    console.log('SUPABASE_URL:', supabaseUrl ? 'Configurado' : 'NÃO CONFIGURADO');
+    console.log('SUPABASE_URL (configurado):', !!supabaseUrl);
+    console.log('SUPABASE_SERVICE_ROLE_KEY (configurado):', !!supabaseServiceRoleKey);
+    console.log('STRIPE_SECRET_KEY (configurado):', !!stripeSecretKey);
     console.log('STRIPE_SECRET_KEY (primeiros 5 caracteres):', stripeSecretKey ? stripeSecretKey.substring(0, 5) : 'NÃO CONFIGURADO');
 
     if (!stripeSecretKey) {
-      console.error('STRIPE_SECRET_KEY não está definida nas variáveis de ambiente.');
+      console.error('ERRO: STRIPE_SECRET_KEY não está definida nas variáveis de ambiente.');
       return new Response(JSON.stringify({ error: 'A variável de ambiente STRIPE_SECRET_KEY não está definida. Por favor, configure-a no Painel do Supabase > Edge Functions > Gerenciar Segredos.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -106,6 +108,8 @@ serve(async (req) => {
       });
     }
 
+    // --- INÍCIO DO BLOCO TEMPORARIAMENTE COMENTADO PARA DEBUG ---
+    /*
     let stripeProductId = null;
     let stripePriceMonthlyId = null;
     let stripePriceOneTimeId = null;
@@ -239,24 +243,26 @@ serve(async (req) => {
       throw new Error(`Erro ao atualizar plano do Supabase com os IDs do Stripe: ${updateDbError.message}`);
     }
     console.log('Plano do Supabase atualizado com sucesso com os IDs do Stripe.');
+    */
+    // --- FIM DO BLOCO TEMPORARIAMENTE COMENTADO PARA DEBUG ---
 
-    console.log('Edge Function sync-stripe-product finalizada com sucesso.');
+    console.log('Edge Function sync-stripe-product finalizada com sucesso (DEBUG MODE).');
     return new Response(JSON.stringify({
       success: true,
-      message: 'Plano sincronizado com Stripe com sucesso',
-      stripeProductId,
-      stripePriceMonthlyId,
-      stripePriceOneTimeId,
+      message: 'Plano sincronizado com Stripe com sucesso (DEBUG MODE)',
+      stripeProductId: 'debug_product_id',
+      stripePriceMonthlyId: 'debug_price_monthly_id',
+      stripePriceOneTimeId: 'debug_price_one_time_id',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
   } catch (error: any) {
-    console.error('Erro na função Edge sync-stripe-product:', error.message);
+    console.error('Erro na função Edge sync-stripe-product (catch externo):', error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
   }
-})
+});
