@@ -80,6 +80,18 @@ serve(async (req) => {
           break;
         }
 
+        // Fetch 'Pro' permission ID
+        const { data: proPermission, error: proPermissionError } = await supabaseAdmin
+          .from('permissoes')
+          .select('id')
+          .eq('nome', 'Pro')
+          .single();
+
+        if (proPermissionError || !proPermission) {
+          console.error('Error fetching Pro permission ID:', proPermissionError);
+          // Continue without updating permission if not found, but log the error
+        }
+
         // Update user's profile (cliente)
         const { error: updateProfileError } = await supabaseAdmin
           .from('cliente')
@@ -89,6 +101,7 @@ serve(async (req) => {
             creditos_perguntas: planDetails.limite_perguntas,
             creditos_redacoes: planDetails.limite_redacoes,
             creditos_simulados: planDetails.limite_simulados,
+            permissao_id: proPermission?.id || null, // Set to Pro permission ID
             // TODO: Handle parent_id for professor plans if applicable
           })
           .eq('id', userId);
@@ -96,7 +109,7 @@ serve(async (req) => {
         if (updateProfileError) {
           console.error('Error updating user profile after checkout:', updateProfileError);
         } else {
-          console.log(`User ${userId} updated to plan ${planId}`);
+          console.log(`User ${userId} updated to plan ${planId} and permission 'Pro'`);
         }
 
         // Record transaction
@@ -172,20 +185,32 @@ serve(async (req) => {
           break;
         }
 
-        // Re-apply credits for recurring plans
+        // Fetch 'Pro' permission ID again for renewal
+        const { data: proPermissionRenewal, error: proPermissionRenewalError } = await supabaseAdmin
+          .from('permissoes')
+          .select('id')
+          .eq('nome', 'Pro')
+          .single();
+
+        if (proPermissionRenewalError || !proPermissionRenewal) {
+          console.error('Error fetching Pro permission ID for renewal:', proPermissionRenewalError);
+        }
+
+        // Re-apply credits and ensure 'Pro' permission for recurring plans
         const { error: updateCreditsError } = await supabaseAdmin
           .from('cliente')
           .update({
             creditos_perguntas: subPlanDetails.limite_perguntas,
             creditos_redacoes: subPlanDetails.limite_redacoes,
             creditos_simulados: subPlanDetails.limite_simulados,
+            permissao_id: proPermissionRenewal?.id || null, // Ensure 'Pro' permission on renewal
           })
           .eq('id', subUserId);
 
         if (updateCreditsError) {
           console.error('Error re-applying credits after recurring payment:', updateCreditsError);
         } else {
-          console.log(`Credits re-applied for user ${subUserId} on plan ${subPlanoId}`);
+          console.log(`Credits re-applied and permission 'Pro' ensured for user ${subUserId} on plan ${subPlanoId}`);
         }
 
         // Update subscription status and period end
@@ -219,6 +244,18 @@ serve(async (req) => {
           break;
         }
 
+        // Fetch 'Free' permission ID to revert to it
+        const { data: freePermission, error: freePermissionError } = await supabaseAdmin
+          .from('permissoes')
+          .select('id')
+          .eq('nome', 'Free')
+          .single();
+
+        if (freePermissionError || !freePermission) {
+          console.error('Error fetching Free permission ID:', freePermissionError);
+          // Continue without updating permission if not found, but log the error
+        }
+
         // Set user's plan to null or free, and set subscription_active to false
         const { error: resetProfileError } = await supabaseAdmin
           .from('cliente')
@@ -228,13 +265,14 @@ serve(async (req) => {
             creditos_perguntas: 0, // Reset credits
             creditos_redacoes: 0,
             creditos_simulados: 0,
+            permissao_id: freePermission?.id || null, // Revert to 'Free' permission
           })
           .eq('id', deletedSubData.user_id);
 
         if (resetProfileError) {
           console.error('Error resetting user profile after subscription deletion:', resetProfileError);
         } else {
-          console.log(`User ${deletedSubData.user_id} plan reset after subscription deletion.`);
+          console.log(`User ${deletedSubData.user_id} plan reset to 'Free' after subscription deletion.`);
         }
 
         // Update subscription record status
