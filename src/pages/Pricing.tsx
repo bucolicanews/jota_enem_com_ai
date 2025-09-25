@@ -7,6 +7,7 @@ import { Loader2, CheckCircle, Crown, DollarSign, Users, MessageSquareText, File
 import { showSuccess, showError } from '@/utils/toast';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
+import { Badge } from '@/components/ui/badge'; // Importar Badge
 
 // Make sure to call loadStripe outside of a component’s render to avoid
 // recreating the Stripe object on every render.
@@ -145,7 +146,12 @@ const Pricing = () => {
         {plans.map((plan) => {
           const isCurrentPlan = userPlanId === plan.id;
           return (
-            <Card key={plan.id} className={`flex flex-col ${isCurrentPlan ? 'border-2 border-primary shadow-lg' : ''}`}>
+            <Card key={plan.id} className={`relative flex flex-col ${isCurrentPlan ? 'border-2 border-primary shadow-lg' : ''}`}>
+              {isCurrentPlan && (
+                <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground">
+                  Seu Plano Atual
+                </Badge>
+              )}
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl font-bold">{plan.nome}</CardTitle>
                 <CardDescription className="text-lg">

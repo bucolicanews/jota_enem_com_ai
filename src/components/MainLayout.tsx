@@ -1,12 +1,12 @@
 import { Outlet } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { UserNav } from './UserNav';
-import { ArrowLeft, Home, User, MessageSquare, BookOpen, Newspaper, Settings, KeyRound, DollarSign, Shield } from 'lucide-react'; // Added DollarSign and Shield
+import { ArrowLeft, Home, User, MessageSquare, BookOpen, Newspaper, Settings, KeyRound, DollarSign, Shield, Crown } from 'lucide-react'; // Added Crown icon
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client'; // Import supabase
-import { checkUserPermissions } from '@/utils/permissions'; // Import checkUserPermissions
+import { checkUserPermissions, UserPermissions } from '@/utils/permissions'; // Import checkUserPermissions
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -18,20 +18,24 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children, title, showBackButton = true, actions, useContainer = true }: MainLayoutProps) => {
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
+  const [loadingPermissions, setLoadingPermissions] = useState(true);
 
   useEffect(() => {
-    const checkAdminStatus = async () => {
+    const getUserAndPermissions = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const permissions = await checkUserPermissions(user.id);
-        setIsAdmin(permissions.isAdmin);
+        setUserPermissions(permissions);
       } else {
-        setIsAdmin(false);
+        setUserPermissions(null);
       }
+      setLoadingPermissions(false);
     };
-    checkAdminStatus();
+    getUserAndPermissions();
   }, []);
+
+  const showUpgradeButton = !loadingPermissions && userPermissions && (userPermissions.isFree || userPermissions.isPro);
 
   return (
     <div className="flex flex-col h-screen bg-gray-100 overflow-x-hidden">
@@ -61,7 +65,7 @@ export const MainLayout = ({ children, title, showBackButton = true, actions, us
                 <KeyRound className="h-4 w-4" />
                 Minhas Chaves de IA
               </Button>
-              {isAdmin && (
+              {userPermissions?.isAdmin && (
                 <Button variant="ghost" size="sm" onClick={() => navigate('/admin/plans')} className="gap-2">
                   <DollarSign className="h-4 w-4" />
                   Gerenciar Planos
@@ -81,6 +85,14 @@ export const MainLayout = ({ children, title, showBackButton = true, actions, us
               )}
               <h1 className="text-xl font-bold text-gray-800 hidden md:block">{title}</h1>
             </div>
+
+            {/* Botão "Atualizar Plano" */}
+            {showUpgradeButton && (
+              <Button variant="secondary" size="sm" onClick={() => navigate('/pricing')} className="gap-2">
+                <Crown className="h-4 w-4" />
+                Atualizar Plano
+              </Button>
+            )}
 
             {/* Ações e usuário */}
             <div className="flex items-center gap-2">
