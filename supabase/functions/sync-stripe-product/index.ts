@@ -108,8 +108,6 @@ serve(async (req) => {
       });
     }
 
-    // --- INÍCIO DO BLOCO TEMPORARIAMENTE COMENTADO PARA DEBUG ---
-    /*
     let stripeProductId = null;
     let stripePriceMonthlyId = null;
     let stripePriceOneTimeId = null;
@@ -243,26 +241,24 @@ serve(async (req) => {
       throw new Error(`Erro ao atualizar plano do Supabase com os IDs do Stripe: ${updateDbError.message}`);
     }
     console.log('Plano do Supabase atualizado com sucesso com os IDs do Stripe.');
-    */
-    // --- FIM DO BLOCO TEMPORARIAMENTE COMENTADO PARA DEBUG ---
 
-    console.log('Edge Function sync-stripe-product finalizada com sucesso (DEBUG MODE).');
+    console.log('Edge Function sync-stripe-product finalizada com sucesso.');
     return new Response(JSON.stringify({
       success: true,
-      message: 'Plano sincronizado com Stripe com sucesso (DEBUG MODE)',
-      stripeProductId: 'debug_product_id',
-      stripePriceMonthlyId: 'debug_price_monthly_id',
-      stripePriceOneTimeId: 'debug_price_one_time_id',
+      message: 'Plano sincronizado com Stripe com sucesso',
+      stripeProductId,
+      stripePriceMonthlyId,
+      stripePriceOneTimeId,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
   } catch (error: any) {
-    console.error('Erro na função Edge sync-stripe-product (catch externo):', error.message);
+    console.error('Erro na função Edge sync-stripe-product:', error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
   }
-});
+})
