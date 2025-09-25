@@ -230,7 +230,17 @@ const AIChat = () => {
         },
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        // Handle specific credit consumption error
+        if (error.message.includes('créditos de perguntas')) {
+          showError('Você não tem créditos de perguntas suficientes. Por favor, atualize seu plano.');
+        } else {
+          showError(error.message || 'Erro ao conversar com a IA.');
+        }
+        // Remove the user message if there was an error
+        setMessages((prev) => prev.filter(msg => msg.id !== userMessage.id));
+        return; // Stop execution here
+      }
 
       const { aiResponse, newConversationId, newConversationTitle } = data;
 

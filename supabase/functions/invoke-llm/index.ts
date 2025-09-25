@@ -44,11 +44,13 @@ serve(async (req) => {
   try {
     // Create a Supabase client with the user's auth token
     // @ts-ignore: Deno is available in runtime
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    // @ts-ignore: Deno is available in runtime
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    
     const supabaseClient = createClient(
-      // @ts-ignore: Deno is available in runtime
-      Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore: Deno is available in runtime
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      supabaseUrl,
+      supabaseAnonKey,
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
 
@@ -166,6 +168,22 @@ serve(async (req) => {
       })
     }
     console.log('Access granted to AI model.');
+
+    // 4. Consume credits for 'perguntas'
+    console.log('Attempting to consume 1 credit for "perguntas" for user:', user.id);
+    const consumeCreditsResponse = await supabaseClient.functions.invoke('consume-credits', {
+      body: { creditType: 'perguntas', amount: 1 },
+    });
+
+    if (consumeCreditsResponse.error) {
+      console.error('Error consuming credits:', consumeCreditsResponse.error);
+      return new Response(JSON.stringify({ error: consumeCreditsResponse.error.message || 'Erro ao consumir créditos de perguntas.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403, // Forbidden due to insufficient credits
+      });
+    }
+    console.log('Credits consumed successfully. New credits:', consumeCreditsResponse.data.newCredits);
+
 
     const { api_key, provider, model_variant, system_message } = model;
     modelProvider = provider; // Atribuir à variável de escopo mais alto
