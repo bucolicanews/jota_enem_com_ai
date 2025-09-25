@@ -56,7 +56,7 @@ export const EditStandardModelDialog = ({ model, isOpen, onClose, onSuccess }: E
     if (model) {
       setProvider(model.provider);
       setModelName(model.model_name || '');
-      setModelVariant(model.model_variant || '');
+      setModelVariant(model.model_variant || 'gemini-1.5-flash-latest'); // Definir o modelo padrão aqui
       setIsActive(model.is_active);
       setSystemMessage(model.system_message || '');
       setDescription(model.description || '');
@@ -66,7 +66,7 @@ export const EditStandardModelDialog = ({ model, isOpen, onClose, onSuccess }: E
       // Reset form if no model is provided (e.g., dialog opened for new creation, though this dialog is for editing)
       setProvider('Google Gemini');
       setModelName('');
-      setModelVariant('');
+      setModelVariant('gemini-1.5-flash-latest'); // Definir o modelo padrão aqui
       setIsActive(true);
       setSystemMessage('');
       setDescription('');

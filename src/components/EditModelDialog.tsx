@@ -40,7 +40,7 @@ export const EditModelDialog = ({ model, isOpen, onClose, onSuccess }: EditModel
     if (model) {
       setProvider(model.provider);
       setModelName(model.model_name || '');
-      setModelVariant(model.model_variant || '');
+      setModelVariant(model.model_variant || 'gemini-1.5-flash-latest'); // Definir o modelo padrão aqui
       setApiKey(''); 
     }
   }, [model]);

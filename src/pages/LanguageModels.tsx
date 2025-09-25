@@ -37,7 +37,7 @@ const LanguageModels = () => {
   const [provider, setProvider] = useState('Google Gemini'); // Definir Gemini como padrão
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
-  const [modelVariant, setModelVariant] = useState('');
+  const [modelVariant, setModelVariant] = useState('gemini-1.5-flash-latest'); // Definir o modelo padrão aqui
 
   // Estados para o diálogo de edição
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -96,7 +96,7 @@ const LanguageModels = () => {
       setProvider('Google Gemini'); // Resetar para Gemini
       setApiKey('');
       setModelName('');
-      setModelVariant('');
+      setModelVariant('gemini-1.5-flash-latest'); // Resetar o modelo padrão
       fetchModels(user.id);
     }
     setIsSubmitting(false);

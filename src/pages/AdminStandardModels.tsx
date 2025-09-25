@@ -50,7 +50,7 @@ export const AdminStandardModels = () => {
   const [provider, setProvider] = useState('Google Gemini');
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
-  const [modelVariant, setModelVariant] = useState('');
+  const [modelVariant, setModelVariant] = useState('gemini-1.5-flash-latest'); // Definir o modelo padrão aqui
   const [isActive, setIsActive] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
   const [description, setDescription] = useState('');
@@ -110,7 +110,7 @@ export const AdminStandardModels = () => {
     setProvider('Google Gemini');
     setApiKey('');
     setModelName('');
-    setModelVariant('');
+    setModelVariant('gemini-1.5-flash-latest'); // Resetar o modelo padrão
     setIsActive(true);
     setSystemMessage('');
     setDescription('');
