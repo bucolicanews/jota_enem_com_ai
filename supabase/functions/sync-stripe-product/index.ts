@@ -5,7 +5,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 // @ts-ignore: ESM imports are valid in runtime
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 // @ts-ignore: ESM imports are valid in runtime
-import Stripe from "https://esm.sh/stripe@14.0.0"; // Alterado para v14.0.0 e removido ?target=deno
+import Stripe from "https://esm.sh/stripe@14.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,14 +28,13 @@ serve(async (req) => {
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY'); 
 
     console.log('SUPABASE_URL:', supabaseUrl ? 'Configured' : 'NOT CONFIGURED');
-    console.log('STRIPE_SECRET_KEY (raw value from Deno.env.get):', stripeSecretKey ? 'Configured' : 'NOT CONFIGURED'); // Log de debug atualizado
-    console.log('STRIPE_SECRET_KEY (first 5 chars):', stripeSecretKey ? stripeSecretKey.substring(0, 5) : 'NOT CONFIGURED'); // Novo log para verificar o valor
+    console.log('STRIPE_SECRET_KEY (first 5 chars):', stripeSecretKey ? stripeSecretKey.substring(0, 5) : 'NOT CONFIGURED');
 
     if (!stripeSecretKey) {
       console.error('STRIPE_SECRET_KEY is not set in environment variables.');
-      return new Response(JSON.stringify({ error: 'STRIPE_SECRET_KEY environment variable is not set.' }), {
+      return new Response(JSON.stringify({ error: 'STRIPE_SECRET_KEY environment variable is not set. Please configure it in Supabase Dashboard > Edge Functions > Manage Secrets.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500, // Internal Server Error because a critical env var is missing
+        status: 500,
       });
     }
 
