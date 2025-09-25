@@ -10,7 +10,7 @@ import { loadStripe } from '@stripe/stripe-js';
 
 // Make sure to call loadStripe outside of a component’s render to avoid
 // recreating the Stripe object on every render.
-const stripePromise = loadStripe('pk_live_51SAwFQIrVzGyoqkS8I8T4X8tQoiIO9eo5L1MvWxMtN9B959e7cYUXqKRQ9XzSe4mh4asjMdy15PFgzmhEQb895GS00XM3OT6Cu');
+const stripePromise = loadStripe('pk_test_51SAwFQIrVzGyoqkSHcTm9EFPMPl4nV5ZsfBNS7vDmR2ifTSP17rtR9mOOvnBJur2NrlGllYnln2H6SCn3IdTOYam00CRudhqWU');
 
 interface Plano {
   id: string;

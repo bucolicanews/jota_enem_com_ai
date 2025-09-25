@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { Toaster } from '@/components/ui/toaster';
+import { Toaster } from '@/components/ui/sonner';
 import { UserNav } from './UserNav';
 import { ArrowLeft, Home, User, MessageSquare, BookOpen, Newspaper, Settings, KeyRound, DollarSign, Shield } from 'lucide-react'; // Added DollarSign and Shield
 import React, { useEffect, useState } from 'react';
