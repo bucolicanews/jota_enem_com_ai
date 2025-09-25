@@ -119,6 +119,16 @@ const AdminPlans = () => {
       return;
     }
 
+    // Frontend validation for duplicate name
+    const isDuplicateName = plans.some(
+      (p) => p.nome.toLowerCase() === nome.trim().toLowerCase() && p.id !== currentPlan?.id
+    );
+
+    if (isDuplicateName) {
+      showError('Já existe um plano com este nome. Por favor, escolha um nome diferente.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     const planData = {
@@ -155,7 +165,11 @@ const AdminPlans = () => {
     }
 
     if (error) {
-      showError(`Erro ao ${editMode ? 'atualizar' : 'adicionar'} plano no Supabase: ${error.message}`);
+      let errorMessage = `Erro ao ${editMode ? 'atualizar' : 'adicionar'} plano no Supabase: ${error.message}`;
+      if (error.code === '23505') { // Unique constraint violation
+        errorMessage = 'Já existe um plano com este nome. Por favor, escolha um nome diferente.';
+      }
+      showError(errorMessage);
       console.error('Submit plan error:', error);
       setIsSubmitting(false);
       return;
