@@ -63,6 +63,8 @@ serve(async (req) => {
         const subscriptionId = checkoutSession.subscription;
         const paymentIntentId = checkoutSession.payment_intent;
 
+        console.log(`Checkout Session Completed for userId: ${userId}, planId: ${planId}`);
+
         if (!userId || !planId) {
           console.error('Missing metadata in checkout.session.completed event');
           break;
@@ -79,6 +81,7 @@ serve(async (req) => {
           console.error('Error fetching plan details:', planDetailsError);
           break;
         }
+        console.log('Plan Details fetched:', planDetails);
 
         // Fetch 'Pro' permission ID
         const { data: proPermission, error: proPermissionError } = await supabaseAdmin
@@ -91,19 +94,22 @@ serve(async (req) => {
           console.error('Error fetching Pro permission ID:', proPermissionError);
           // Continue without updating permission if not found, but log the error
         }
+        console.log('Pro Permission ID fetched:', proPermission?.id);
 
         // Update user's profile (cliente)
-        const { error: updateProfileError } = await supabaseAdmin
-          .from('cliente')
-          .update({
+        const updateData = {
             plano_id: planId,
             assinatura_ativa: true,
             creditos_perguntas: planDetails.limite_perguntas,
             creditos_redacoes: planDetails.limite_redacoes,
             creditos_simulados: planDetails.limite_simulados,
             permissao_id: proPermission?.id || null, // Set to Pro permission ID
-            // TODO: Handle parent_id for professor plans if applicable
-          })
+        };
+        console.log('Attempting to update user profile with data:', updateData);
+
+        const { error: updateProfileError } = await supabaseAdmin
+          .from('cliente')
+          .update(updateData)
           .eq('id', userId);
 
         if (updateProfileError) {
@@ -154,6 +160,8 @@ serve(async (req) => {
         const invoice = event.data.object;
         const subscriptionIdFromInvoice = invoice.subscription;
 
+        console.log(`Invoice Payment Succeeded for subscriptionId: ${subscriptionIdFromInvoice}`);
+
         if (!subscriptionIdFromInvoice) {
           console.error('Missing subscription ID in invoice.payment_succeeded event');
           break;
@@ -172,6 +180,8 @@ serve(async (req) => {
         }
 
         const { user_id: subUserId, plano_id: subPlanoId } = subscriptionData;
+        console.log(`Subscription data found: userId: ${subUserId}, planId: ${subPlanoId}`);
+
 
         // Fetch plan details to re-apply limits
         const { data: subPlanDetails, error: subPlanDetailsError } = await supabaseAdmin
@@ -184,6 +194,7 @@ serve(async (req) => {
           console.error('Error fetching plan details for subscription renewal:', subPlanDetailsError);
           break;
         }
+        console.log('Subscription Plan Details fetched:', subPlanDetails);
 
         // Fetch 'Pro' permission ID again for renewal
         const { data: proPermissionRenewal, error: proPermissionRenewalError } = await supabaseAdmin
@@ -195,16 +206,20 @@ serve(async (req) => {
         if (proPermissionRenewalError || !proPermissionRenewal) {
           console.error('Error fetching Pro permission ID for renewal:', proPermissionRenewalError);
         }
+        console.log('Pro Permission ID for renewal fetched:', proPermissionRenewal?.id);
 
         // Re-apply credits and ensure 'Pro' permission for recurring plans
-        const { error: updateCreditsError } = await supabaseAdmin
-          .from('cliente')
-          .update({
+        const updateCreditsData = {
             creditos_perguntas: subPlanDetails.limite_perguntas,
             creditos_redacoes: subPlanDetails.limite_redacoes,
             creditos_simulados: subPlanDetails.limite_simulados,
             permissao_id: proPermissionRenewal?.id || null, // Ensure 'Pro' permission on renewal
-          })
+        };
+        console.log('Attempting to update user profile on renewal with data:', updateCreditsData);
+
+        const { error: updateCreditsError } = await supabaseAdmin
+          .from('cliente')
+          .update(updateCreditsData)
           .eq('id', subUserId);
 
         if (updateCreditsError) {
@@ -233,6 +248,8 @@ serve(async (req) => {
         const subscriptionDeleted = event.data.object;
         const deletedSubscriptionId = subscriptionDeleted.id;
 
+        console.log(`Subscription Deleted for subscriptionId: ${deletedSubscriptionId}`);
+
         const { data: deletedSubData, error: deletedSubError } = await supabaseAdmin
           .from('assinaturas')
           .select('user_id')
@@ -255,18 +272,22 @@ serve(async (req) => {
           console.error('Error fetching Free permission ID:', freePermissionError);
           // Continue without updating permission if not found, but log the error
         }
+        console.log('Free Permission ID fetched for deletion:', freePermission?.id);
 
         // Set user's plan to null or free, and set subscription_active to false
-        const { error: resetProfileError } = await supabaseAdmin
-          .from('cliente')
-          .update({
+        const resetProfileData = {
             plano_id: null, // Or ID of your 'Free' plan
             assinatura_ativa: false,
             creditos_perguntas: 0, // Reset credits
             creditos_redacoes: 0,
             creditos_simulados: 0,
             permissao_id: freePermission?.id || null, // Revert to 'Free' permission
-          })
+        };
+        console.log('Attempting to reset user profile on subscription deletion with data:', resetProfileData);
+
+        const { error: resetProfileError } = await supabaseAdmin
+          .from('cliente')
+          .update(resetProfileData)
           .eq('id', deletedSubData.user_id);
 
         if (resetProfileError) {
