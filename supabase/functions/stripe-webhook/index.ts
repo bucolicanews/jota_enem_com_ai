@@ -90,11 +90,14 @@ serve(async (req) => {
           .eq('nome', 'Pro')
           .single();
 
+        let proPermissionId = null;
         if (proPermissionError || !proPermission) {
           console.error('Error fetching Pro permission ID:', proPermissionError);
-          // Continue without updating permission if not found, but log the error
+          console.warn('Could not find "Pro" permission in the database. Using null for permissao_id.');
+        } else {
+          proPermissionId = proPermission.id;
+          console.log('Pro Permission ID fetched:', proPermissionId);
         }
-        console.log('Pro Permission ID fetched:', proPermission?.id);
 
         // Update user's profile (cliente)
         const updateData = {
@@ -103,7 +106,7 @@ serve(async (req) => {
             creditos_perguntas: planDetails.limite_perguntas,
             creditos_redacoes: planDetails.limite_redacoes,
             creditos_simulados: planDetails.limite_simulados,
-            permissao_id: proPermission?.id || null, // Set to Pro permission ID
+            permissao_id: proPermissionId, // Set to Pro permission ID
         };
         console.log('Attempting to update user profile with data:', updateData);
 
@@ -113,7 +116,7 @@ serve(async (req) => {
           .eq('id', userId);
 
         if (updateProfileError) {
-          console.error('Error updating user profile after checkout:', updateProfileError);
+          console.error('CRITICAL ERROR: Failed to update user profile after checkout:', updateProfileError);
         } else {
           console.log(`User ${userId} updated to plan ${planId} and permission 'Pro'`);
         }
@@ -203,17 +206,21 @@ serve(async (req) => {
           .eq('nome', 'Pro')
           .single();
 
+        let proPermissionRenewalId = null;
         if (proPermissionRenewalError || !proPermissionRenewal) {
           console.error('Error fetching Pro permission ID for renewal:', proPermissionRenewalError);
+          console.warn('Could not find "Pro" permission in the database for renewal. Using null for permissao_id.');
+        } else {
+          proPermissionRenewalId = proPermissionRenewal.id;
+          console.log('Pro Permission ID for renewal fetched:', proPermissionRenewalId);
         }
-        console.log('Pro Permission ID for renewal fetched:', proPermissionRenewal?.id);
 
         // Re-apply credits and ensure 'Pro' permission for recurring plans
         const updateCreditsData = {
             creditos_perguntas: subPlanDetails.limite_perguntas,
             creditos_redacoes: subPlanDetails.limite_redacoes,
             creditos_simulados: subPlanDetails.limite_simulados,
-            permissao_id: proPermissionRenewal?.id || null, // Ensure 'Pro' permission on renewal
+            permissao_id: proPermissionRenewalId, // Ensure 'Pro' permission on renewal
         };
         console.log('Attempting to update user profile on renewal with data:', updateCreditsData);
 
@@ -268,11 +275,14 @@ serve(async (req) => {
           .eq('nome', 'Free')
           .single();
 
+        let freePermissionId = null;
         if (freePermissionError || !freePermission) {
           console.error('Error fetching Free permission ID:', freePermissionError);
-          // Continue without updating permission if not found, but log the error
+          console.warn('Could not find "Free" permission in the database. Using null for permissao_id.');
+        } else {
+          freePermissionId = freePermission.id;
+          console.log('Free Permission ID fetched for deletion:', freePermissionId);
         }
-        console.log('Free Permission ID fetched for deletion:', freePermission?.id);
 
         // Set user's plan to null or free, and set subscription_active to false
         const resetProfileData = {
@@ -281,7 +291,7 @@ serve(async (req) => {
             creditos_perguntas: 0, // Reset credits
             creditos_redacoes: 0,
             creditos_simulados: 0,
-            permissao_id: freePermission?.id || null, // Revert to 'Free' permission
+            permissao_id: freePermissionId, // Revert to 'Free' permission
         };
         console.log('Attempting to reset user profile on subscription deletion with data:', resetProfileData);
 

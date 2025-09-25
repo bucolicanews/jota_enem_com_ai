@@ -16,10 +16,28 @@ interface MainLayoutProps {
   useContainer?: boolean;
 }
 
+// Add new interface for profile data to pass
+interface UserProfileData {
+  id: string;
+  nome: string | null;
+  apelido: string | null;
+  avatar_url: string | null;
+  permissao_id: string | null;
+  plano_id: string | null;
+  creditos_perguntas: number;
+  creditos_redacoes: number;
+  creditos_simulados: number;
+  parent_id: string | null;
+  permissao_nome?: string; // Added for convenience
+  limite_usuarios_adicionais?: number; // From plan
+  connected_students_count?: number; // For professors
+}
+
 export const MainLayout = ({ children, title, showBackButton = true, actions, useContainer = true }: MainLayoutProps) => {
   const navigate = useNavigate();
   const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
   const [loadingPermissions, setLoadingPermissions] = useState(true);
+  const [userProfileData, setUserProfileData] = useState<UserProfileData | null>(null); // New state for profile data
 
   useEffect(() => {
     const getUserAndPermissions = async () => {
@@ -27,8 +45,67 @@ export const MainLayout = ({ children, title, showBackButton = true, actions, us
       if (user) {
         const permissions = await checkUserPermissions(user.id);
         setUserPermissions(permissions);
+
+        // Fetch detailed profile data
+        const { data: profileData, error: profileError } = await supabase
+          .from('cliente')
+          .select(`
+            id,
+            nome,
+            apelido,
+            avatar_url,
+            permissao_id,
+            plano_id,
+            creditos_perguntas,
+            creditos_redacoes,
+            creditos_simulados,
+            parent_id,
+            permissao:permissao_id(nome),
+            plano:plano_id(limite_usuarios_adicionais)
+          `)
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Error fetching detailed user profile:', profileError);
+        } else if (profileData) {
+          // Ajuste aqui: Acessar o primeiro elemento do array 'permissao' e 'plano'
+          const permissao = Array.isArray(profileData.permissao) ? profileData.permissao[0] : profileData.permissao;
+          const plano = Array.isArray(profileData.plano) ? profileData.plano[0] : profileData.plano;
+
+          const profile: UserProfileData = {
+            id: profileData.id,
+            nome: profileData.nome,
+            apelido: profileData.apelido,
+            avatar_url: profileData.avatar_url,
+            permissao_id: profileData.permissao_id,
+            plano_id: profileData.plano_id,
+            creditos_perguntas: profileData.creditos_perguntas,
+            creditos_redacoes: profileData.creditos_redacoes,
+            creditos_simulados: profileData.creditos_simulados,
+            parent_id: profileData.parent_id,
+            permissao_nome: permissao?.nome, // Acessar de permissao
+            limite_usuarios_adicionais: plano?.limite_usuarios_adicionais, // Acessar de plano
+          };
+
+          // If user is a professor, fetch connected students count
+          if (permissions.isProf && !profile.parent_id) { // Only if they are a professor and not a student themselves
+            const { count, error: countError } = await supabase
+              .from('cliente')
+              .select('id', { count: 'exact', head: true })
+              .eq('parent_id', user.id);
+
+            if (countError) {
+              console.error('Error fetching connected students count:', countError);
+            } else {
+              profile.connected_students_count = count || 0;
+            }
+          }
+          setUserProfileData(profile);
+        }
       } else {
         setUserPermissions(null);
+        setUserProfileData(null);
       }
       setLoadingPermissions(false);
     };
@@ -97,7 +174,7 @@ export const MainLayout = ({ children, title, showBackButton = true, actions, us
             {/* Ações e usuário */}
             <div className="flex items-center gap-2">
               {actions}
-              <UserNav />
+              <UserNav userProfileData={userProfileData} /> {/* Pass userProfileData to UserNav */}
             </div>
           </div>
         </div>
