@@ -5,7 +5,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 // @ts-ignore: ESM imports are valid in runtime
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 // @ts-ignore: ESM imports are valid in runtime
-import Stripe from "https://esm.sh/stripe@14.0.0"; // Alterado para v14.0.0 e removido ?target=deno
+import Stripe from "https://esm.sh/stripe@14.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,10 +13,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log('--- Edge Function stripe-webhook START ---'); // Log de início absoluto da função
+  console.log('--- Edge Function stripe-webhook START ---');
   console.log('Request Method:', req.method);
-  // Não logar todos os headers para evitar exposição de informações sensíveis.
-  // console.log('Request Headers:', req.headers);
 
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS request.');
@@ -31,21 +29,25 @@ serve(async (req) => {
     // @ts-ignore: Deno is available in runtime
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
     // @ts-ignore: Deno is available in runtime
-    const stripeWebhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? ''; // Você precisará configurar esta variável de ambiente
+    const stripeWebhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? '';
 
     console.log('SUPABASE_URL (configurado):', !!supabaseUrl);
     console.log('SUPABASE_SERVICE_ROLE_KEY (configurado):', !!supabaseServiceRoleKey);
     console.log('STRIPE_SECRET_KEY (configurado):', !!stripeSecretKey);
     console.log('STRIPE_WEBHOOK_SECRET (configurado):', !!stripeWebhookSecret);
-    // Logar os primeiros caracteres para depuração, mas com cuidado para não expor a chave completa.
     console.log('STRIPE_SECRET_KEY (primeiros 5 caracteres):', stripeSecretKey ? stripeSecretKey.substring(0, 5) : 'NÃO CONFIGURADO');
     console.log('STRIPE_WEBHOOK_SECRET (primeiros 5 caracteres):', stripeWebhookSecret ? stripeWebhookSecret.substring(0, 5) : 'NÃO CONFIGURADO');
 
-
-    if (!stripeSecretKey || !stripeWebhookSecret) {
-      const missingKey = !stripeSecretKey ? 'STRIPE_SECRET_KEY' : 'STRIPE_WEBHOOK_SECRET';
-      console.error(`ERRO: A variável de ambiente ${missingKey} não está definida.`);
-      return new Response(JSON.stringify({ error: `A variável de ambiente ${missingKey} não está definida. Por favor, configure-a no Painel do Supabase > Edge Functions > Gerenciar Segredos.` }), {
+    if (!stripeSecretKey) {
+      console.error('ERRO: A variável de ambiente STRIPE_SECRET_KEY não está definida.');
+      return new Response(JSON.stringify({ error: 'A variável de ambiente STRIPE_SECRET_KEY não está definida. Por favor, configure-a no Painel do Supabase > Edge Functions > Gerenciar Segredos.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+    if (!stripeWebhookSecret) { // Adicionada verificação explícita para STRIPE_WEBHOOK_SECRET
+      console.error('ERRO: A variável de ambiente STRIPE_WEBHOOK_SECRET não está definida.');
+      return new Response(JSON.stringify({ error: 'A variável de ambiente STRIPE_WEBHOOK_SECRET não está definida. Por favor, configure-a no Painel do Supabase > Edge Functions > Gerenciar Segredos.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       });
@@ -70,7 +72,8 @@ serve(async (req) => {
     let event;
 
     try {
-      event = stripe.webhooks.constructEvent(body, signature, stripeWebhookSecret);
+      // CORREÇÃO AQUI: Usando constructEventAsync com await
+      event = await stripe.webhooks.constructEventAsync(body, signature, stripeWebhookSecret);
       console.log(`Webhook signature verification successful for event type: ${event.type}`);
     } catch (err: any) {
       console.error(`Webhook signature verification failed: ${err.message}`);
