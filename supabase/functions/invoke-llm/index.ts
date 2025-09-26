@@ -3,9 +3,9 @@
 // @ts-ignore: Deno imports are valid in runtime
 /// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
-// @ts-ignore: Deno imports are valid in runtime
+// @ts-ignore: Deno imports are valid em runtime
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
-// @ts-ignore: ESM imports are valid in runtime
+// @ts-ignore: ESM imports are valid em runtime
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const corsHeaders = {
@@ -43,9 +43,9 @@ serve(async (req) => {
 
   try {
     // Create a Supabase client with the user's auth token
-    // @ts-ignore: Deno is available in runtime
+    // @ts-ignore: Deno is available em runtime
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    // @ts-ignore: Deno is available in runtime
+    // @ts-ignore: Deno is available em runtime
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     
     const supabaseClient = createClient(
@@ -80,11 +80,11 @@ serve(async (req) => {
     console.log('Invoking modelId:', modelId);
 
     // Create a service role client to securely fetch the API key and user permissions
-    // @ts-ignore: Deno is available in runtime
+    // @ts-ignore: Deno is available em runtime
     serviceClient = createClient( // Atribuir à variável de escopo mais alto
-        // @ts-ignore: Deno is available in runtime
+        // @ts-ignore: Deno is available em runtime
         Deno.env.get('SUPABASE_URL') ?? '',
-        // @ts-ignore: Deno is available in runtime
+        // @ts-ignore: Deno is available em runtime
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
@@ -310,8 +310,8 @@ serve(async (req) => {
             const errorData = await response.json();
             console.error('Gemini API error:', errorData);
             const errorMessage = errorData.error?.message || 'Erro desconhecido';
-            if (errorMessage.includes('Quota exceeded')) {
-                aiResponse = 'Desculpe, o limite de uso da IA (Google Gemini) foi atingido. Por favor, tente novamente mais tarde ou considere verificar seu plano de API.';
+            if (errorMessage.includes('Quota exceeded') || errorMessage.includes('limit: 0')) {
+                aiResponse = 'Desculpe, o limite de uso da IA (Google Gemini) foi atingido. Por favor, verifique seu plano e detalhes de faturamento no Google AI Studio ou tente novamente mais tarde.';
             } else {
                 aiResponse = `Erro na conexão com Gemini: ${errorMessage}`;
             }
