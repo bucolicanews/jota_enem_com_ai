@@ -35,8 +35,11 @@ interface EditStandardModelDialogProps {
 }
 
 const MODEL_VARIANTS: Record<string, string[]> = {
-  'Google Gemini': ['gemini-1.5-flash-latest'],
-  // Adicione outros provedores e seus modelos aqui, se necessário
+  'Google Gemini': ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro'],
+  'OpenAI': ['gpt-3.5-turbo', 'gpt-4o', 'gpt-4-turbo'],
+  'Anthropic': ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
+  'Groq': ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
+  'DeepSeek': ['deepseek-chat', 'deepseek-coder'],
 };
 
 export const EditStandardModelDialog = ({ model, isOpen, onClose, onSuccess }: EditStandardModelDialogProps) => {
@@ -56,17 +59,17 @@ export const EditStandardModelDialog = ({ model, isOpen, onClose, onSuccess }: E
     if (model) {
       setProvider(model.provider);
       setModelName(model.model_name || '');
-      setModelVariant(model.model_variant || 'gemini-1.5-flash-latest'); // Definir o modelo padrão aqui
+      setModelVariant(model.model_variant || ''); // Removido o padrão inicial
       setIsActive(model.is_active);
       setSystemMessage(model.system_message || '');
       setDescription(model.description || '');
       setAvatarUrl(model.avatar_url || '');
       setApiKey(''); // API key is not pre-filled for security
     } else {
-      // Reset form if no model is provided (e.g., dialog opened for new creation, though this dialog is for editing)
+      // Reset form if no model is provided
       setProvider('Google Gemini');
       setModelName('');
-      setModelVariant('gemini-1.5-flash-latest'); // Definir o modelo padrão aqui
+      setModelVariant('');
       setIsActive(true);
       setSystemMessage('');
       setDescription('');
@@ -74,6 +77,15 @@ export const EditStandardModelDialog = ({ model, isOpen, onClose, onSuccess }: E
       setApiKey('');
     }
   }, [model]);
+
+  useEffect(() => {
+    // Define o primeiro modelo da lista como padrão quando o provedor muda
+    if (provider && MODEL_VARIANTS[provider] && MODEL_VARIANTS[provider].length > 0) {
+      setModelVariant(MODEL_VARIANTS[provider][0]);
+    } else {
+      setModelVariant('');
+    }
+  }, [provider]);
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return '..';
@@ -223,16 +235,20 @@ export const EditStandardModelDialog = ({ model, isOpen, onClose, onSuccess }: E
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-provider">Provedor</Label>
-              <Select value={provider} onValueChange={setProvider} disabled>
+              <Select value={provider} onValueChange={setProvider}>
                 <SelectTrigger id="edit-provider"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Google Gemini">Google Gemini</SelectItem>
+                  <SelectItem value="OpenAI">OpenAI</SelectItem>
+                  <SelectItem value="Anthropic">Anthropic</SelectItem>
+                  <SelectItem value="Groq">Groq</SelectItem>
+                  <SelectItem value="DeepSeek">DeepSeek</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-model-variant">Modelo Específico</Label>
-              <Select value={modelVariant} onValueChange={setModelVariant} disabled={!provider}>
+              <Select value={modelVariant} onValueChange={setModelVariant} disabled={!provider || !MODEL_VARIANTS[provider]?.length}>
                 <SelectTrigger id="edit-model-variant"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {provider && MODEL_VARIANTS[provider]?.map((variant) => (<SelectItem key={variant} value={variant}>{variant}</SelectItem>))}

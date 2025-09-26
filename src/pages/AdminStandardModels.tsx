@@ -31,8 +31,11 @@ interface LanguageModel {
 }
 
 const MODEL_VARIANTS: Record<string, string[]> = {
-  'Google Gemini': ['gemini-1.5-flash-latest'],
-  // Adicione outros provedores e seus modelos aqui, se necessário
+  'Google Gemini': ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro'],
+  'OpenAI': ['gpt-3.5-turbo', 'gpt-4o', 'gpt-4-turbo'],
+  'Anthropic': ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
+  'Groq': ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
+  'DeepSeek': ['deepseek-chat', 'deepseek-coder'],
 };
 
 export const AdminStandardModels = () => {
@@ -50,7 +53,7 @@ export const AdminStandardModels = () => {
   const [provider, setProvider] = useState('Google Gemini');
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
-  const [modelVariant, setModelVariant] = useState('gemini-1.5-flash-latest'); // Definir o modelo padrão aqui
+  const [modelVariant, setModelVariant] = useState(''); // Removido o padrão inicial
   const [isActive, setIsActive] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
   const [description, setDescription] = useState('');
@@ -69,6 +72,15 @@ export const AdminStandardModels = () => {
     }
     return name.substring(0, 2).toUpperCase();
   };
+
+  useEffect(() => {
+    // Define o primeiro modelo da lista como padrão quando o provedor muda
+    if (provider && MODEL_VARIANTS[provider] && MODEL_VARIANTS[provider].length > 0) {
+      setModelVariant(MODEL_VARIANTS[provider][0]);
+    } else {
+      setModelVariant('');
+    }
+  }, [provider]);
 
   const fetchModels = useCallback(async () => {
     setLoading(true);
@@ -110,7 +122,7 @@ export const AdminStandardModels = () => {
     setProvider('Google Gemini');
     setApiKey('');
     setModelName('');
-    setModelVariant('gemini-1.5-flash-latest'); // Resetar o modelo padrão
+    setModelVariant(MODEL_VARIANTS['Google Gemini'][0]); // Resetar para o primeiro modelo Gemini
     setIsActive(true);
     setSystemMessage('');
     setDescription('');
@@ -164,7 +176,7 @@ export const AdminStandardModels = () => {
     try {
       const { error: removeError } = await supabase.storage.from('model_avatars').remove([filePath]);
       if (removeError) {
-        throw removeError;
+        console.error('Erro ao deletar avatar do storage:', removeError);
       }
       setAvatarUrl('');
       showSuccess('Avatar removido.');
@@ -228,7 +240,6 @@ export const AdminStandardModels = () => {
           const { error: removeError } = await supabase.storage.from('model_avatars').remove([filePath]);
           if (removeError) {
             console.error('Erro ao deletar avatar do storage:', removeError);
-            // Não lançar erro aqui, apenas logar, para que a exclusão do DB possa continuar
           }
         }
       }
@@ -312,17 +323,14 @@ export const AdminStandardModels = () => {
           <CardTitle>Adicionar Novo Agente Professor</CardTitle>
           <CardDescription>Configure um novo modelo de IA para ser um agente professor padrão.</CardDescription>
           <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-400 text-blue-800 rounded-md">
-            <p className="font-semibold mb-2">Como obter sua chave de API do Google Gemini:</p>
-            <p className="text-sm">
-              Para usar o Google Gemini gratuitamente, você pode gerar uma chave de API no Google AI Studio.
-              Visite <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">aistudio.google.com/app/apikey</a> para começar.
-            </p>
-            <p className="text-sm mt-2">
-              Se você precisar de mais opções de modelos de IA, considere
-              <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-800" onClick={() => navigate('/pricing')}>
-                atualizar seu plano
-              </Button> para PRO.
-            </p>
+            <p className="font-semibold mb-2">Como obter sua chave de API:</p>
+            <ul className="list-disc list-inside text-sm space-y-1">
+              <li><strong>Google Gemini:</strong> Visite <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">aistudio.google.com/app/apikey</a></li>
+              <li><strong>OpenAI:</strong> Visite <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.openai.com/api-keys</a></li>
+              <li><strong>Anthropic:</strong> Visite <a href="https://console.anthropic.com/settings/api-keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">console.anthropic.com/settings/api-keys</a></li>
+              <li><strong>Groq:</strong> Visite <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">console.groq.com/keys</a></li>
+              <li><strong>DeepSeek:</strong> Visite <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.deepseek.com/api_keys</a></li>
+            </ul>
           </div>
         </CardHeader>
         <CardContent>
@@ -363,14 +371,17 @@ export const AdminStandardModels = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Google Gemini">Google Gemini</SelectItem>
-                    {/* Adicione outros provedores aqui, se necessário */}
+                    <SelectItem value="OpenAI">OpenAI</SelectItem>
+                    <SelectItem value="Anthropic">Anthropic</SelectItem>
+                    <SelectItem value="Groq">Groq</SelectItem>
+                    <SelectItem value="DeepSeek">DeepSeek</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="model-variant">Modelo Específico</Label>
-                <Select value={modelVariant} onValueChange={setModelVariant} disabled={!provider}>
+                <Select value={modelVariant} onValueChange={setModelVariant} disabled={!provider || !MODEL_VARIANTS[provider]?.length}>
                   <SelectTrigger id="model-variant">
                     <SelectValue placeholder="Selecione o modelo" />
                   </SelectTrigger>

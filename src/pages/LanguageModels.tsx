@@ -23,7 +23,11 @@ interface LanguageModel {
 }
 
 const MODEL_VARIANTS: Record<string, string[]> = {
-  'Google Gemini': ['gemini-1.5-flash-latest'],
+  'Google Gemini': ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro'],
+  'OpenAI': ['gpt-3.5-turbo', 'gpt-4o', 'gpt-4-turbo'],
+  'Anthropic': ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
+  'Groq': ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
+  'DeepSeek': ['deepseek-chat', 'deepseek-coder'],
 };
 
 const LanguageModels = () => {
@@ -34,14 +38,23 @@ const LanguageModels = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testingModelId, setTestingModelId] = useState<string | null>(null);
 
-  const [provider, setProvider] = useState('Google Gemini'); // Definir Gemini como padrão
+  const [provider, setProvider] = useState('Google Gemini');
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
-  const [modelVariant, setModelVariant] = useState('gemini-1.5-flash-latest'); // Definir o modelo padrão aqui
-
+  const [modelVariant, setModelVariant] = useState(''); // Removido o padrão inicial
+  
   // Estados para o diálogo de edição
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedModelToEdit, setSelectedModelToEdit] = useState<LanguageModel | null>(null);
+
+  useEffect(() => {
+    // Define o primeiro modelo da lista como padrão quando o provedor muda
+    if (provider && MODEL_VARIANTS[provider] && MODEL_VARIANTS[provider].length > 0) {
+      setModelVariant(MODEL_VARIANTS[provider][0]);
+    } else {
+      setModelVariant('');
+    }
+  }, [provider]);
 
   useEffect(() => {
     const getUser = async () => {
@@ -93,10 +106,10 @@ const LanguageModels = () => {
       showError('Erro ao salvar a chave de API.');
     } else {
       showSuccess('Chave de API salva com sucesso!');
-      setProvider('Google Gemini'); // Resetar para Gemini
+      setProvider('Google Gemini');
       setApiKey('');
       setModelName('');
-      setModelVariant('gemini-1.5-flash-latest'); // Resetar o modelo padrão
+      setModelVariant(MODEL_VARIANTS['Google Gemini'][0]); // Resetar para o primeiro modelo Gemini
       fetchModels(user.id);
     }
     setIsSubmitting(false);
@@ -157,11 +170,14 @@ const LanguageModels = () => {
           <CardTitle>Configurar Modelo de IA</CardTitle>
           <CardDescription>Adicione suas chaves de API para usar modelos de linguagem</CardDescription>
           <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-400 text-blue-800 rounded-md">
-            <p className="font-semibold mb-2">Como obter sua chave de API do Google Gemini:</p>
-            <p className="text-sm">
-              Para usar o Google Gemini gratuitamente, você pode gerar uma chave de API no Google AI Studio.
-              Visite <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">aistudio.google.com/app/apikey</a> para começar.
-            </p>
+            <p className="font-semibold mb-2">Como obter sua chave de API:</p>
+            <ul className="list-disc list-inside text-sm space-y-1">
+              <li><strong>Google Gemini:</strong> Visite <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">aistudio.google.com/app/apikey</a></li>
+              <li><strong>OpenAI:</strong> Visite <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.openai.com/api-keys</a></li>
+              <li><strong>Anthropic:</strong> Visite <a href="https://console.anthropic.com/settings/api-keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">console.anthropic.com/settings/api-keys</a></li>
+              <li><strong>Groq:</strong> Visite <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">console.groq.com/keys</a></li>
+              <li><strong>DeepSeek:</strong> Visite <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.deepseek.com/api_keys</a></li>
+            </ul>
             <p className="text-sm mt-2">
               Se você precisar de mais opções de modelos de IA, considere
               <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-800" onClick={() => navigate('/pricing')}>
@@ -175,19 +191,23 @@ const LanguageModels = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="provider">Provedor</Label>
-                <Select value={provider} onValueChange={setProvider} disabled> {/* Desabilitado para ser apenas Gemini */}
+                <Select value={provider} onValueChange={setProvider}>
                   <SelectTrigger id="provider">
                     <SelectValue placeholder="Selecione o provedor" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Google Gemini">Google Gemini</SelectItem>
+                    <SelectItem value="OpenAI">OpenAI</SelectItem>
+                    <SelectItem value="Anthropic">Anthropic</SelectItem>
+                    <SelectItem value="Groq">Groq</SelectItem>
+                    <SelectItem value="DeepSeek">DeepSeek</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="model-variant">Modelo</Label>
-                <Select value={modelVariant} onValueChange={setModelVariant} disabled={!provider}>
+                <Select value={modelVariant} onValueChange={setModelVariant} disabled={!provider || !MODEL_VARIANTS[provider]?.length}>
                   <SelectTrigger id="model-variant">
                     <SelectValue placeholder="Selecione o modelo" />
                   </SelectTrigger>
@@ -247,14 +267,14 @@ const LanguageModels = () => {
           ) : (
             <div className="space-y-4">
               {models.map((model) => (
-                <div key={model.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
+                <div key={model.id} className="flex flex-col sm:flex-row items-center justify-between p-4 border rounded-lg">
+                  <div className="mb-2 sm:mb-0">
                     <h4 className="font-medium">{model.provider}</h4>
                     <p className="text-sm text-muted-foreground">
                       {model.model_name || model.model_variant}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap justify-center sm:justify-end gap-2">
                     <Button
                       variant="outline"
                       size="sm"

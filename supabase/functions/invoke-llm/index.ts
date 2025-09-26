@@ -68,8 +68,8 @@ serve(async (req) => {
     }
     console.log('User authenticated:', user.id);
 
-    // Removido selectedLanguage do corpo da requisição
-    const { modelId, userMessage, conversationId: incomingConversationId, systemMessage: initialSystemMessage } = await req.json()
+    // Removido selectedLanguage e systemMessage do corpo da requisição
+    const { modelId, userMessage, conversationId: incomingConversationId } = await req.json()
     if (!modelId || !userMessage) {
       console.log('Access denied: modelId e userMessage são obrigatórios.');
       return new Response(JSON.stringify({ error: 'modelId e userMessage são obrigatórios' }), {
@@ -252,7 +252,7 @@ serve(async (req) => {
     // Prepare messages array, including system_message if available
     const messagesForLLM: { role: string; content: string }[] = [];
     
-    let finalSystemMessage = system_message || initialSystemMessage || '';
+    let finalSystemMessage = system_message || '';
     // Adicionar instrução explícita para responder em português
     finalSystemMessage += `\n\nResponda sempre em Português do Brasil.`;
 
