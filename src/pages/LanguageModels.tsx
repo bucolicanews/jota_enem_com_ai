@@ -23,7 +23,7 @@ interface LanguageModel {
 }
 
 const MODEL_VARIANTS: Record<string, string[]> = {
-  'Google Gemini': ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro'],
+  'Google Gemini': ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-preview', 'gemini-2.5-flash-lite', 'gemini-2.5-flash-lite-preview', 'gemini-2.5-pro', 'gemini-2.0-flash-lite', 'gemini-2.0-flash'],
   'OpenAI': ['gpt-3.5-turbo', 'gpt-4o', 'gpt-4-turbo'],
   'Anthropic': ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
   'Groq': ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
@@ -176,7 +176,7 @@ const LanguageModels = () => {
               <li><strong>OpenAI:</strong> Visite <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.openai.com/api-keys</a></li>
               <li><strong>Anthropic:</strong> Visite <a href="https://console.anthropic.com/settings/api-keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">console.anthropic.com/settings/api-keys</a></li>
               <li><strong>Groq:</strong> Visite <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">console.groq.com/keys</a></li>
-              <li><strong>DeepSeek:</strong> Visite <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.deepseek.com/api_keys</a></li>
+              <li><strong>DeepSeek:</strong> Visite <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.deepseek.com/api-keys</a></li>
             </ul>
             <p className="text-sm mt-2">
               Se você precisar de mais opções de modelos de IA, considere

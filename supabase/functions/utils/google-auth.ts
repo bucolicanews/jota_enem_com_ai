@@ -23,12 +23,12 @@ export async function getVertexAIAuthToken(): Promise<{ token: string; projectId
     cachedProjectId = credentials.project_id; // Store project ID
   }
 
-  const { token } = await jwtClient.authorize();
-  if (!token) {
+  const { access_token } = await jwtClient.authorize(); // Corrigido: usar access_token
+  if (!access_token) {
     throw new Error('Failed to obtain Google Vertex AI access token.');
   }
   if (!cachedProjectId) {
     throw new Error('Google Cloud Project ID not found in service account key.');
   }
-  return { token, projectId: cachedProjectId };
+  return { token: access_token, projectId: cachedProjectId }; // Retornar como 'token' para manter a interface
 }
