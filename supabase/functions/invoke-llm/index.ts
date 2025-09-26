@@ -1,8 +1,8 @@
-// Removido: /// <reference lib="deno.ns" />
-import { serve } from 'std/http'; // Caminho atualizado para usar o alias
-import { createClient } from '@supabase/supabase-js'; // Caminho atualizado para usar o alias
-import { invokeLLM } from 'shared/llm-providers'; // Caminho atualizado para usar o alias
-import { consumeCredits } from 'shared/consume-credits'; // Caminho atualizado para usar o alias
+/// <reference path="../../deno.d.ts" />
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'; // URL direta
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.2'; // URL direta
+import { invokeLLM } from '../_shared/llm-providers.ts'; // Caminho relativo corrigido
+import { consumeCredits } from '../_shared/consume-credits.ts'; // Caminho relativo corrigido
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,7 +60,7 @@ serve(async (req) => {
     } else {
       return new Response(JSON.stringify({ success: false, message: errorMessage || 'Falha ao invocar o modelo de IA.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+      status: 400,
       });
     }
   } catch (error: any) {

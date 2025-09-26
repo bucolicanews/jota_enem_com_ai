@@ -1,5 +1,6 @@
+/// <reference path="../../deno.d.ts" />
 // supabase/functions/_shared/consume-credits.ts
-import { SupabaseClient } from '@supabase/supabase-js'; // Caminho atualizado para usar o alias
+import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.43.2';
 
 export async function consumeCredits(supabaseClient: SupabaseClient, authHeader: string): Promise<{ error?: string }> {
   // Esta é uma função placeholder. A lógica real de consumo de créditos seria implementada aqui.

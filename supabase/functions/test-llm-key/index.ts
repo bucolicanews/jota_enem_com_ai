@@ -1,7 +1,7 @@
-// Removido: /// <reference lib="deno.ns" />
-import { serve } from 'std/http'; // Caminho atualizado para usar o alias
-import { createClient } from '@supabase/supabase-js'; // Caminho atualizado para usar o alias
-import { testLLMConnection } from 'shared/llm-providers'; // Caminho atualizado para usar o alias
+/// <reference path="../../deno.d.ts" />
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'; // URL direta
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.2'; // URL direta
+import { testLLMConnection } from '../_shared/llm-providers.ts'; // Caminho relativo corrigido
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

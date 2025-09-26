@@ -1,12 +1,7 @@
 {
-  "compilerOptions": {
-    // Removido "lib" pois o runtime Deno fornece esses globais.
-    // Adicionado "types" para incluir explicitamente os tipos globais do Deno.
-    "types": ["https://deno.land/std@0.224.0/types.d.ts"]
-  },
   "imports": {
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.43.2",
-    "std/http": "https://deno.land/std@0.224.0/http/server.ts",
+    "std/http": "https://deno.land/std@0.168.0/http/server.ts",
     "shared/llm-providers": "./_shared/llm-providers.ts",
     "shared/google-auth": "./_shared/google-auth.ts",
     "shared/consume-credits": "./_shared/consume-credits.ts"

@@ -1,6 +1,7 @@
+/// <reference path="../../deno.d.ts" />
 // supabase/functions/_shared/llm-providers.ts
 
-import { getVertexAIAuthToken } from 'shared/google-auth'; // Caminho atualizado para usar o alias
+import { getVertexAIAuthToken } from './google-auth.ts'; // Caminho relativo corrigido
 
 interface LLMMessage {
   role: string;

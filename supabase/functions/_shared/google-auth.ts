@@ -1,8 +1,8 @@
+/// <reference path="../../deno.d.ts" />
 // supabase/functions/_shared/google-auth.ts
 
 import { JWT } from 'https://esm.sh/google-auth-library@9.11.0';
 
-// Removido: @ts-ignore: Deno is available in runtime
 const GOOGLE_SERVICE_ACCOUNT_KEY = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
 
 let jwtClient: JWT | null = null;
