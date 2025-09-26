@@ -1,19 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2, PlusCircle, Trash2, TestTube, MessageSquareText, Pencil, ShieldAlert, XCircle } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
-import { EditStandardModelDialog } from '@/components/EditStandardModelDialog'; // Importar o novo componente
+import { EditStandardModelDialog } from '@/components/EditStandardModelDialog';
+import { AdminStandardModelForm } from '@/components/AdminStandardModelForm'; // Importar o novo componente de formulário
 import { requireAdmin } from '@/utils/permissions';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Adicionado: Importação dos componentes Avatar
 
 interface LanguageModel {
   id: string;
@@ -30,14 +26,6 @@ interface LanguageModel {
   created_at: string;
 }
 
-const MODEL_VARIANTS: Record<string, string[]> = {
-  'Google Gemini': ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro'],
-  'OpenAI': ['gpt-3.5-turbo', 'gpt-4o', 'gpt-4-turbo'],
-  'Anthropic': ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
-  'Groq': ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
-  'DeepSeek': ['deepseek-chat', 'deepseek-coder'],
-};
-
 export const AdminStandardModels = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
@@ -47,20 +35,8 @@ export const AdminStandardModels = () => {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testingModelId, setTestingModelId] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false); // Adicionado: Estado para controlar o upload do avatar
 
-  // Estados do formulário para adicionar/editar
-  const [provider, setProvider] = useState('Google Gemini');
-  const [apiKey, setApiKey] = useState('');
-  const [modelName, setModelName] = useState('');
-  const [modelVariant, setModelVariant] = useState(''); // Removido o padrão inicial
-  const [isActive, setIsActive] = useState(true);
-  const [systemMessage, setSystemMessage] = useState('');
-  const [description, setDescription] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Estados para o NOVO diálogo de edição de agentes padrão
+  // Estados para o diálogo de edição de agentes padrão
   const [isEditStandardDialogOpen, setIsEditStandardDialogOpen] = useState(false);
   const [selectedStandardModelToEdit, setSelectedStandardModelToEdit] = useState<LanguageModel | null>(null);
 
@@ -72,15 +48,6 @@ export const AdminStandardModels = () => {
     }
     return name.substring(0, 2).toUpperCase();
   };
-
-  useEffect(() => {
-    // Define o primeiro modelo da lista como padrão quando o provedor muda
-    if (provider && MODEL_VARIANTS[provider] && MODEL_VARIANTS[provider].length > 0) {
-      setModelVariant(MODEL_VARIANTS[provider][0]);
-    } else {
-      setModelVariant('');
-    }
-  }, [provider]);
 
   const fetchModels = useCallback(async () => {
     setLoading(true);
@@ -118,108 +85,50 @@ export const AdminStandardModels = () => {
     checkPermissionsAndFetchData();
   }, [navigate, fetchModels]);
 
-  const resetForm = () => {
-    setProvider('Google Gemini');
-    setApiKey('');
-    setModelName('');
-    setModelVariant(MODEL_VARIANTS['Google Gemini'][0]); // Resetar para o primeiro modelo Gemini
-    setIsActive(true);
-    setSystemMessage('');
-    setDescription('');
-    setAvatarUrl('');
-    setUploading(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) {
-      showError("Nenhum arquivo selecionado.");
-      return;
-    }
-    const file = e.target.files[0];
-    if (file.size > 5 * 1024 * 1024) {
-      showError("A imagem é muito grande (máx. 5MB).");
-      return;
-    }
-    const fileExt = file.name.split('.').pop();
-    const filePath = `model_avatars/${Date.now()}.${fileExt}`;
-
-    setUploading(true);
-    try {
-      const { error: uploadError } = await supabase.storage.from('model_avatars').upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-      const { data } = supabase.storage.from('model_avatars').getPublicUrl(filePath);
-      setAvatarUrl(data.publicUrl);
-      showSuccess('Avatar enviado com sucesso!');
-    } catch (error: any) {
-      showError(`Erro no upload do avatar: ${error.message}`);
-      console.error('Erro de upload:', error);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleDeleteAvatar = async () => {
-    if (!avatarUrl) return;
-
-    const filePath = avatarUrl.split('/model_avatars/')[1];
-    if (!filePath) {
-      showError('Não foi possível identificar o arquivo a ser deletado.');
-      return;
-    }
-
-    try {
-      const { error: removeError } = await supabase.storage.from('model_avatars').remove([filePath]);
-      if (removeError) {
-        console.error('Erro ao deletar avatar do storage:', removeError);
-      }
-      setAvatarUrl('');
-      showSuccess('Avatar removido.');
-    } catch (error: any) {
-      showError(`Erro ao deletar o avatar: ${error.message}`);
-      console.error('Erro ao deletar avatar:', error);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddOrUpdateModel = async (modelData: Omit<LanguageModel, 'user_id' | 'is_standard'> & { id?: string }) => {
     if (!isAdmin) {
       showError('Acesso negado.');
       return;
     }
-    if (!provider || !apiKey || !modelName || !modelVariant || !systemMessage || !description) {
-      showError('Por favor, preencha todos os campos obrigatórios.');
-      return;
-    }
     setIsSubmitting(true);
 
-    const modelData = {
+    const dataToSave = {
       user_id: null, // Standard models are not linked to a specific user
-      provider,
-      api_key: apiKey,
-      model_name: modelName,
-      model_variant: modelVariant,
-      is_active: isActive,
+      provider: modelData.provider,
+      api_key: modelData.api_key,
+      model_name: modelData.model_name,
+      model_variant: modelData.model_variant,
+      is_active: modelData.is_active,
       is_standard: true,
-      system_message: systemMessage,
-      description,
-      avatar_url: avatarUrl || null,
+      system_message: modelData.system_message,
+      description: modelData.description,
+      avatar_url: modelData.avatar_url || null,
     };
 
-    const { error } = await supabase.from('language_models').insert(modelData);
+    let error = null;
+    if (modelData.id) {
+      // Update existing model
+      const { error: updateError } = await supabase
+        .from('language_models')
+        .update(dataToSave)
+        .eq('id', modelData.id);
+      error = updateError;
+    } else {
+      // Add new model
+      const { error: insertError } = await supabase.from('language_models').insert(dataToSave);
+      error = insertError;
+    }
 
     if (error) {
-      showError(`Erro ao adicionar modelo: ${error.message}`);
+      showError(`Erro ao ${modelData.id ? 'atualizar' : 'adicionar'} agente: ${error.message}`);
       console.error('Submit error:', error);
     } else {
-      showSuccess('Agente professor adicionado com sucesso!');
-      resetForm();
+      showSuccess(`Agente professor ${modelData.id ? 'atualizado' : 'adicionado'} com sucesso!`);
       fetchModels();
+      // Reset form or close dialog if needed
+      if (!modelData.id) { // Only reset form if adding a new one
+        // This logic is now handled by the form component's initialModel prop
+      }
     }
     setIsSubmitting(false);
   };
@@ -284,13 +193,13 @@ export const AdminStandardModels = () => {
     navigate(`/ai-chat/${modelId}`);
   };
 
-  // Função para abrir o NOVO diálogo de edição de agentes padrão
+  // Função para abrir o diálogo de edição de agentes padrão
   const handleEditClick = (model: LanguageModel) => {
     setSelectedStandardModelToEdit(model);
     setIsEditStandardDialogOpen(true);
   };
 
-  // Função para fechar o NOVO diálogo de edição e recarregar os modelos
+  // Função para fechar o diálogo de edição e recarregar os modelos
   const handleEditSuccess = () => {
     setIsEditStandardDialogOpen(false);
     fetchModels();
@@ -329,134 +238,17 @@ export const AdminStandardModels = () => {
               <li><strong>OpenAI:</strong> Visite <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.openai.com/api-keys</a></li>
               <li><strong>Anthropic:</strong> Visite <a href="https://console.anthropic.com/settings/api-keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">console.anthropic.com/settings/api-keys</a></li>
               <li><strong>Groq:</strong> Visite <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">console.groq.com/keys</a></li>
-              <li><strong>DeepSeek:</strong> Visite <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.deepseek.com/api_keys</a></li>
+              <li><strong>DeepSeek:</strong> Visite <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 hover:text-blue-800">platform.deepseek.com/api-keys</a></li>
             </ul>
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Avatar do Agente - MOVIDO PARA O TOPO */}
-            <div className="space-y-2 md:col-span-2">
-              <Label>Avatar do Agente</Label>
-              <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20 border-2">
-                  <AvatarImage src={avatarUrl || ''} alt={modelName || 'Agente'} />
-                  <AvatarFallback>{getInitials(modelName)}</AvatarFallback>
-                </Avatar>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  ref={fileInputRef}
-                  onChange={handleAvatarUpload}
-                  disabled={uploading}
-                />
-                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                  {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Selecionar Avatar'}
-                </Button>
-                {avatarUrl && (
-                  <Button type="button" variant="ghost" size="icon" onClick={handleDeleteAvatar} disabled={uploading}>
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="provider">Provedor</Label>
-                <Select value={provider} onValueChange={setProvider}>
-                  <SelectTrigger id="provider">
-                    <SelectValue placeholder="Selecione o provedor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Google Gemini">Google Gemini</SelectItem>
-                    <SelectItem value="OpenAI">OpenAI</SelectItem>
-                    <SelectItem value="Anthropic">Anthropic</SelectItem>
-                    <SelectItem value="Groq">Groq</SelectItem>
-                    <SelectItem value="DeepSeek">DeepSeek</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="model-variant">Modelo Específico</Label>
-                <Select value={modelVariant} onValueChange={setModelVariant} disabled={!provider || !MODEL_VARIANTS[provider]?.length}>
-                  <SelectTrigger id="model-variant">
-                    <SelectValue placeholder="Selecione o modelo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {provider && MODEL_VARIANTS[provider]?.map((variant) => (
-                      <SelectItem key={variant} value={variant}>{variant}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="model-name">Nome do Agente</Label>
-                <Input
-                  id="model-name"
-                  value={modelName}
-                  onChange={(e) => setModelName(e.target.value)}
-                  placeholder="Ex: Professor de Matemática"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="api-key">Chave de API</Label>
-                <Input
-                  id="api-key"
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Insira a chave de API"
-                  required
-                  autoComplete="new-password"
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="system-message">Mensagem de Sistema (Instruções para a IA)</Label>
-                <Textarea
-                  id="system-message"
-                  value={systemMessage}
-                  onChange={(e) => setSystemMessage(e.target.value)}
-                  placeholder="Ex: Você é um professor de matemática especializado em ENEM. Responda de forma didática..."
-                  rows={4}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="description">Descrição Curta (para exibição)</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ex: Agente especializado em matemática para o ENEM."
-                  rows={2}
-                  required
-                />
-              </div>
-
-              <div className="flex items-center space-x-2 md:col-span-2">
-                <Switch
-                  id="is-active"
-                  checked={isActive}
-                  onCheckedChange={setIsActive}
-                />
-                <Label htmlFor="is-active">Ativo (Visível para usuários PRO)</Label>
-              </div>
-            </div>
-
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Adicionar Agente
-            </Button>
-          </form>
+          <AdminStandardModelForm
+            isAdmin={isAdmin}
+            onSubmit={handleAddOrUpdateModel}
+            isSubmitting={isSubmitting}
+            initialModel={null} // For adding a new model
+          />
         </CardContent>
       </Card>
 
@@ -519,7 +311,7 @@ export const AdminStandardModels = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleEditClick(model)} // Usar o novo handleEditClick
+                      onClick={() => handleEditClick(model)}
                       disabled={isSubmitting}
                     >
                       <Pencil className="h-4 w-4" />
@@ -540,7 +332,7 @@ export const AdminStandardModels = () => {
         </CardContent>
       </Card>
 
-      {/* NOVO Diálogo de Edição para Agentes Padrão */}
+      {/* Diálogo de Edição para Agentes Padrão */}
       <EditStandardModelDialog
         model={selectedStandardModelToEdit}
         isOpen={isEditStandardDialogOpen}
