@@ -88,6 +88,14 @@ export const MainLayout = ({ children, title, showBackButton = true, actions, us
             limite_usuarios_adicionais: plano?.limite_usuarios_adicionais, // Acessar de plano
           };
 
+          // --- NOVA LÓGICA AQUI ---
+          if (permissions.isAdmin) {
+            profile.creditos_perguntas = -1; // Usar -1 para indicar ilimitado
+            profile.creditos_redacoes = -1;
+            profile.creditos_simulados = -1;
+          }
+          // --- FIM NOVA LÓGICA ---
+
           // If user is a professor, fetch connected students count
           if (permissions.isProf && !profile.parent_id) { // Only if they are a professor and not a student themselves
             const { count, error: countError } = await supabase

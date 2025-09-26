@@ -17,23 +17,28 @@ import type { User } from '@supabase/supabase-js';
 import { getPermissionStyle } from '@/utils/permissionStyles';
 import { getPermissaoUsuario } from '@/utils/permissions'; // Import getPermissaoUsuario
 
+// Alinhando a interface Profile com UserProfileData do MainLayout para consistência
 interface Profile {
+  id: string;
   nome: string | null;
   apelido: string | null;
   avatar_url: string | null;
+  permissao_id: string | null;
+  plano_id: string | null;
+  creditos_perguntas: number;
+  creditos_redacoes: number;
+  creditos_simulados: number;
+  parent_id: string | null;
   permissao_nome?: string;
-  creditos_perguntas?: number;
-  creditos_redacoes?: number;
-  creditos_simulados?: number;
   limite_usuarios_adicionais?: number;
   connected_students_count?: number;
 }
 
 interface UserNavProps {
-  userProfileData: Profile | null; // New prop
+  userProfileData: Profile | null;
 }
 
-export function UserNav({ userProfileData }: UserNavProps) { // Accept new prop
+export function UserNav({ userProfileData }: UserNavProps) {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -45,21 +50,24 @@ export function UserNav({ userProfileData }: UserNavProps) { // Accept new prop
       if (loggedInUser) {
         setUser(loggedInUser);
         
-        if (userProfileData) { // Use data from prop if available
+        if (userProfileData) { // Usar dados da prop se disponíveis
           setProfile(userProfileData);
-        } else { // Otherwise, fetch it (fallback, though MainLayout should provide it)
+        } else { // Fallback: buscar perfil se a prop não for fornecida (menos ideal, MainLayout deve fornecer)
           try {
             const { data: profileData, error: profileError } = await supabase
               .from('cliente')
               .select(`
+                id,
                 nome,
                 apelido,
                 avatar_url,
                 permissao_id,
+                plano_id,
                 creditos_perguntas,
                 creditos_redacoes,
                 creditos_simulados,
                 parent_id,
+                permissao:permissao_id(nome),
                 plano:plano_id(limite_usuarios_adicionais)
               `)
               .eq('id', loggedInUser.id)
@@ -70,16 +78,13 @@ export function UserNav({ userProfileData }: UserNavProps) { // Accept new prop
               return;
             }
 
-            // Ajuste aqui: Acessar o primeiro elemento do array 'plano'
+            const permissao = Array.isArray(profileData?.permissao) ? profileData?.permissao[0] : profileData?.permissao;
             const planoData = Array.isArray(profileData?.plano) ? profileData?.plano[0] : profileData?.plano;
 
-            let permissaoNome = 'Usuário';
-            if (profileData?.permissao_id) {
-              permissaoNome = await getPermissaoUsuario(loggedInUser.id); // Use existing utility
-            }
-
+            let permissaoNome = permissao?.nome || 'Usuário';
+            
             let connectedStudentsCount = 0;
-            if (permissaoNome === 'Prof' && !profileData?.parent_id) { // If is a professor and not a student
+            if (permissaoNome === 'Prof' && !profileData?.parent_id) {
               const { count, error: countError } = await supabase
                 .from('cliente')
                 .select('id', { count: 'exact', head: true })
@@ -89,14 +94,18 @@ export function UserNav({ userProfileData }: UserNavProps) { // Accept new prop
             }
 
             setProfile({
+              id: profileData?.id || '', // Adicionado id
               nome: profileData?.nome || null,
               apelido: profileData?.apelido || null,
               avatar_url: profileData?.avatar_url || null,
-              permissao_nome: permissaoNome,
+              permissao_id: profileData?.permissao_id || null, // Adicionado permissao_id
+              plano_id: profileData?.plano_id || null, // Adicionado plano_id
               creditos_perguntas: profileData?.creditos_perguntas || 0,
               creditos_redacoes: profileData?.creditos_redacoes || 0,
               creditos_simulados: profileData?.creditos_simulados || 0,
-              limite_usuarios_adicionais: planoData?.limite_usuarios_adicionais || 0, // Acessar de planoData
+              parent_id: profileData?.parent_id || null, // Adicionado parent_id
+              permissao_nome: permissaoNome,
+              limite_usuarios_adicionais: planoData?.limite_usuarios_adicionais || 0,
               connected_students_count: connectedStudentsCount,
             });
 
@@ -108,7 +117,7 @@ export function UserNav({ userProfileData }: UserNavProps) { // Accept new prop
       setLoading(false);
     };
     fetchUserAndProfile();
-  }, [userProfileData]); // Depend on userProfileData prop
+  }, [userProfileData]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -122,6 +131,13 @@ export function UserNav({ userProfileData }: UserNavProps) { // Accept new prop
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
+  };
+
+  const renderCredit = (creditValue: number | undefined) => {
+    if (creditValue === -1) {
+      return '∞'; // Símbolo de infinito
+    }
+    return creditValue ?? 0;
   };
 
   const displayName = profile?.apelido || profile?.nome || user?.email;
@@ -187,13 +203,13 @@ export function UserNav({ userProfileData }: UserNavProps) { // Accept new prop
           {/* Display credit limits */}
           <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">Créditos:</DropdownMenuLabel>
           <DropdownMenuItem className="text-xs">
-            <MessageSquareText className="mr-2 h-4 w-4" /> Perguntas: {profile?.creditos_perguntas ?? 0}
+            <MessageSquareText className="mr-2 h-4 w-4" /> Perguntas: {renderCredit(profile?.creditos_perguntas)}
           </DropdownMenuItem>
           <DropdownMenuItem className="text-xs">
-            <BookCopy className="mr-2 h-4 w-4" /> Redações: {profile?.creditos_redacoes ?? 0}
+            <BookCopy className="mr-2 h-4 w-4" /> Redações: {renderCredit(profile?.creditos_redacoes)}
           </DropdownMenuItem>
           <DropdownMenuItem className="text-xs">
-            <FileText className="mr-2 h-4 w-4" /> Simulados: {profile?.creditos_simulados ?? 0}
+            <FileText className="mr-2 h-4 w-4" /> Simulados: {renderCredit(profile?.creditos_simulados)}
           </DropdownMenuItem>
           {/* Display professor-specific info */}
           {profile?.permissao_nome === 'Prof' && (
