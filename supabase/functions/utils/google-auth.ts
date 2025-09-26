@@ -1,0 +1,29 @@
+// supabase/functions/utils/google-auth.ts
+
+import { JWT } from 'https://esm.sh/google-auth-library@9.11.0';
+
+// @ts-ignore: Deno is available in runtime
+const GOOGLE_SERVICE_ACCOUNT_KEY = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
+
+let jwtClient: JWT | null = null;
+
+export async function getVertexAIAuthToken(): Promise<string> {
+  if (!GOOGLE_SERVICE_ACCOUNT_KEY) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set.');
+  }
+
+  if (!jwtClient) {
+    const credentials = JSON.parse(GOOGLE_SERVICE_ACCOUNT_KEY);
+    jwtClient = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+    });
+  }
+
+  const { token } = await jwtClient.authorize();
+  if (!token) {
+    throw new Error('Failed to obtain Google Vertex AI access token.');
+  }
+  return token;
+}

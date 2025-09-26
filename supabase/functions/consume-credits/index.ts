@@ -40,12 +40,21 @@ serve(async (req) => {
       });
     }
 
-    const { creditType, amount = 1 } = await req.json(); // creditType: 'perguntas', 'redacoes', 'simulados'
+    const { creditType, amount = 1, isStandardModel = false } = await req.json(); // Adicionado isStandardModel
 
     if (!creditType || !['perguntas', 'redacoes', 'simulados'].includes(creditType)) {
       return new Response(JSON.stringify({ error: 'Invalid credit type' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
+      });
+    }
+
+    // Se o modelo não for padrão (ou seja, é um modelo pessoal do usuário), não consome créditos.
+    if (!isStandardModel) {
+      console.log('Skipping credit consumption for personal model.');
+      return new Response(JSON.stringify({ success: true, newCredits: -1 }), { // -1 para indicar que não há consumo
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
       });
     }
 

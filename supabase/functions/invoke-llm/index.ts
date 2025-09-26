@@ -3,10 +3,11 @@
 // @ts-ignore: Deno imports are valid in runtime
 /// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
-// @ts-ignore: Deno imports are valid em runtime
+// @ts-ignore: Deno imports are valid in runtime
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
-// @ts-ignore: ESM imports are valid em runtime
+// @ts-ignore: ESM imports are valid in runtime
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { invokeLLM } from '../utils/llm-providers.ts'; // Importar o novo utilitário
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,9 +44,9 @@ serve(async (req) => {
 
   try {
     // Create a Supabase client with the user's auth token
-    // @ts-ignore: Deno is available em runtime
+    // @ts-ignore: Deno is available in runtime
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    // @ts-ignore: Deno is available em runtime
+    // @ts-ignore: Deno is available in runtime
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     
     const supabaseClient = createClient(
@@ -68,8 +69,7 @@ serve(async (req) => {
     }
     console.log('User authenticated:', user.id);
 
-    // Removido selectedLanguage e systemMessage do corpo da requisição
-    const { modelId, userMessage, conversationId: incomingConversationId } = await req.json()
+    const { modelId, userMessage, conversationId: incomingConversationId, systemMessage: initialSystemMessage } = await req.json()
     if (!modelId || !userMessage) {
       console.log('Access denied: modelId e userMessage são obrigatórios.');
       return new Response(JSON.stringify({ error: 'modelId e userMessage são obrigatórios' }), {
@@ -80,11 +80,11 @@ serve(async (req) => {
     console.log('Invoking modelId:', modelId);
 
     // Create a service role client to securely fetch the API key and user permissions
-    // @ts-ignore: Deno is available em runtime
+    // @ts-ignore: Deno is available in runtime
     serviceClient = createClient( // Atribuir à variável de escopo mais alto
-        // @ts-ignore: Deno is available em runtime
+        // @ts-ignore: Deno is available in runtime
         Deno.env.get('SUPABASE_URL') ?? '',
-        // @ts-ignore: Deno is available em runtime
+        // @ts-ignore: Deno is available in runtime
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
@@ -169,20 +169,24 @@ serve(async (req) => {
     }
     console.log('Access granted to AI model.');
 
-    // 4. Consume credits for 'perguntas'
-    console.log('Attempting to consume 1 credit for "perguntas" for user:', user.id);
-    const consumeCreditsResponse = await supabaseClient.functions.invoke('consume-credits', {
-      body: { creditType: 'perguntas', amount: 1 },
-    });
-
-    if (consumeCreditsResponse.error) {
-      console.error('Error consuming credits:', consumeCreditsResponse.error);
-      return new Response(JSON.stringify({ error: consumeCreditsResponse.error.message || 'Erro ao consumir créditos de perguntas.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 403, // Forbidden due to insufficient credits
+    // 4. Consume credits ONLY for standard models
+    if (model.is_standard) {
+      console.log('Attempting to consume 1 credit for "perguntas" for user:', user.id);
+      const consumeCreditsResponse = await supabaseClient.functions.invoke('consume-credits', {
+        body: { creditType: 'perguntas', amount: 1 },
       });
+
+      if (consumeCreditsResponse.error) {
+        console.error('Error consuming credits:', consumeCreditsResponse.error);
+        return new Response(JSON.stringify({ error: consumeCreditsResponse.error.message || 'Erro ao consumir créditos de perguntas.' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 403, // Forbidden due to insufficient credits
+        });
+      }
+      console.log('Credits consumed successfully. New credits:', consumeCreditsResponse.data.newCredits);
+    } else {
+      console.log('Model is personal, skipping credit consumption.');
     }
-    console.log('Credits consumed successfully. New credits:', consumeCreditsResponse.data.newCredits);
 
 
     const { api_key, provider, model_variant, system_message } = model;
@@ -203,7 +207,10 @@ serve(async (req) => {
 
       if (convError || !newConv) {
         console.error('Error creating new conversation:', convError);
-        throw new Error('Erro ao iniciar nova conversa.'); // Throw error for outer catch
+        return new Response(JSON.stringify({ error: 'Erro ao iniciar nova conversa.' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
       }
       currentConversationId = newConv.id;
       newConversationTitle = newConv.title;
@@ -249,7 +256,7 @@ serve(async (req) => {
     // Prepare messages array, including system_message if available
     const messagesForLLM: { role: string; content: string }[] = [];
     
-    let finalSystemMessage = system_message || '';
+    let finalSystemMessage = system_message || initialSystemMessage || '';
     // Adicionar instrução explícita para responder em português
     finalSystemMessage += `\n\nResponda sempre em Português do Brasil.`;
 
@@ -270,104 +277,18 @@ serve(async (req) => {
     console.log('Messages prepared for LLM:', messagesForLLM);
 
     // Invoke the appropriate LLM based on the provider
-    if (provider === 'OpenAI') {
-        console.log('Invoking OpenAI model:', model_variant);
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-            body: JSON.stringify({ model: model_variant, messages: messagesForLLM, max_tokens: 500 })
-        });
-        if (response.ok) {
-            const data = await response.json();
-            aiResponse = data.choices[0]?.message?.content || aiResponse;
-            console.log('OpenAI response received.');
-        } else {
-            const errorData = await response.json();
-            console.error('OpenAI API error:', errorData);
-            throw new Error(`Falha na conexão com OpenAI: ${errorData.error?.message || 'Erro desconhecido'}`);
-        }
-    } 
-    else if (provider === 'Google Gemini') {
-        console.log('Invoking Google Gemini model:', model_variant);
-        const finalGeminiMessages = messagesForLLM.map(msg => ({
-          role: msg.role === 'system' ? 'user' : msg.role, // Gemini doesn't have a 'system' role directly in content
-          parts: [{ text: msg.content }]
-        }));
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model_variant}:generateContent?key=${api_key}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: finalGeminiMessages })
-        });
-        if (response.ok) {
-            const data = await response.json();
-            aiResponse = data.candidates[0]?.content?.parts[0]?.text || aiResponse;
-            console.log('Google Gemini response received.');
-        } else {
-            const errorData = await response.json();
-            console.error('Gemini API error:', errorData);
-            const errorMessage = errorData.error?.message || 'Erro desconhecido';
-            if (errorMessage.includes('Quota exceeded') || errorMessage.includes('limit: 0')) {
-                throw new Error('Parece que o limite de uso da sua chave de API do Google Gemini foi atingido. Por favor, verifique seu plano e detalhes de faturamento no Google AI Studio, ou tente novamente mais tarde.');
-            } else {
-                // Lançar erro para qualquer outro tipo de falha do Gemini
-                throw new Error('Não foi possível acessar o modelo Gemini. Verifique se o modelo está correto e se sua chave de API tem as permissões necessárias.');
-            }
-        }
-    } 
-    else if (provider === 'Anthropic') {
-        console.log('Invoking Anthropic model:', model_variant);
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': api_key, 'anthropic-version': '2023-06-01' },
-            body: JSON.stringify({ model: model_variant, messages: messagesForLLM, max_tokens: 500 })
-        });
-        if (response.ok) {
-            const data = await response.json();
-            aiResponse = data.content[0]?.text || aiResponse;
-            console.log('Anthropic response received.');
-        } else {
-            const errorData = await response.json();
-            console.error('Anthropic API error:', errorData);
-            throw new Error(`Falha na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}`);
-        }
+    const llmResponse = await invokeLLM(provider, model_variant, api_key, messagesForLLM, system_message);
+
+    if (!llmResponse.success) {
+      aiResponse = llmResponse.errorMessage || aiResponse;
+      console.error('LLM invocation failed:', llmResponse.errorMessage);
+      // If LLM invocation fails, we should not save the AI response, but still return an error.
+      return new Response(JSON.stringify({ error: aiResponse }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
     }
-    else if (provider === 'Groq') {
-        console.log('Invoking Groq model:', model_variant);
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-            body: JSON.stringify({ model: model_variant, messages: messagesForLLM, max_tokens: 500 })
-        });
-        if (response.ok) {
-            const data = await response.json();
-            aiResponse = data.choices[0]?.message?.content || aiResponse;
-            console.log('Groq response received.');
-        } else {
-            const errorData = await response.json();
-            console.error('Groq API error:', errorData);
-            throw new Error(`Falha na conexão com Groq: ${errorData.error?.message || 'Erro desconhecido'}`);
-        }
-    }
-    else if (provider === 'DeepSeek') {
-        console.log('Invoking DeepSeek model:', model_variant);
-        const response = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-            body: JSON.stringify({ model: model_variant, messages: messagesForLLM, max_tokens: 500 })
-        });
-        if (response.ok) {
-            const data = await response.json();
-            aiResponse = data.choices[0]?.message?.content || aiResponse;
-            console.log('DeepSeek response received.');
-        } else {
-            const errorData = await response.json();
-            console.error('DeepSeek API error:', errorData);
-            throw new Error(`Falha na conexão com DeepSeek: ${errorData.error?.message || 'Erro desconhecido'}`);
-        }
-    }
-    else {
-      throw new Error(`Provedor de IA '${provider}' não suportado.`);
-    }
+    aiResponse = llmResponse.aiResponse;
 
 
     // Save AI response
@@ -389,9 +310,9 @@ serve(async (req) => {
     })
   } catch (error: any) {
     console.error(`Erro interno na função Edge invoke-llm (provedor: ${modelProvider}):`, error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: `Erro interno: ${error.message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500, // Use 500 for internal errors, or 400 for client-side issues like invalid input
+      status: 500,
     })
   }
 })

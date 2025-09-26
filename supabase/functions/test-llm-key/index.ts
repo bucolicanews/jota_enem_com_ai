@@ -7,6 +7,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 // @ts-ignore: ESM imports are valid in runtime
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { testLLMConnection } from '../utils/llm-providers.ts'; // Importar o novo utilitário
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -150,99 +151,7 @@ serve(async (req) => {
     console.log('DEBUG: Provedor do DB:', provider);
     console.log('DEBUG: Variante do Modelo do DB:', model_variant);
 
-    let testResult = { success: false, message: 'Provedor não suportado' };
-
-    try {
-      // Test OpenAI
-      if (provider === 'OpenAI') {
-          console.log('Tentando testar OpenAI...');
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-              body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
-          });
-          console.log('Status da resposta OpenAI:', response.status);
-          if (response.ok) {
-              testResult = { success: true, message: 'Conexão com OpenAI bem-sucedida!' };
-          } else {
-              const errorData = await response.json();
-              console.error('Resposta de erro da API OpenAI:', errorData);
-              testResult = { success: false, message: `Falha na conexão com OpenAI: ${errorData.error?.message || 'Erro desconhecido'}` };
-          }
-      } 
-      // Test Google Gemini
-      else if (provider === 'Google Gemini') {
-          console.log('Tentando testar Google Gemini...');
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model_variant}:generateContent?key=${api_key}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: 'Hello' }] }] })
-          });
-          console.log('Status da resposta Google Gemini:', response.status);
-          if (response.ok) {
-              testResult = { success: true, message: 'Conexão com Google Gemini bem-sucedida!' };
-          } else {
-              const errorData = await response.json();
-              console.error('Resposta de erro da API Google Gemini:', errorData);
-              testResult = { success: false, message: `Falha na conexão com Gemini: ${errorData.error?.message || 'Erro desconhecido'}` };
-          }
-      } 
-      // Test Anthropic
-      else if (provider === 'Anthropic') {
-          console.log('Tentando testar Anthropic...');
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-api-key': api_key, 'anthropic-version': '2023-06-01' },
-              body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
-          });
-          console.log('Status da resposta Anthropic:', response.status);
-          if (response.ok) {
-              testResult = { success: true, message: 'Conexão com Anthropic bem-sucedida!' };
-          } else {
-              const errorData = await response.json();
-              console.error('Resposta de erro da API Anthropic:', errorData);
-              testResult = { success: false, message: `Falha na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}` };
-          }
-      } 
-      // Test Groq
-      else if (provider === 'Groq') {
-          console.log('Tentando testar Groq...');
-          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-              body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
-          });
-          console.log('Status da resposta Groq:', response.status);
-          if (response.ok) {
-              testResult = { success: true, message: 'Conexão com Groq bem-sucedida!' };
-          } else {
-              const errorData = await response.json();
-              console.error('Resposta de erro da API Groq:', errorData);
-              testResult = { success: false, message: `Falha na conexão com Groq: ${errorData.error?.message || 'Erro desconhecido'}` };
-          }
-      }
-      // Test DeepSeek
-      else if (provider === 'DeepSeek') {
-          console.log('Tentando testar DeepSeek...');
-          const response = await fetch('https://api.deepseek.com/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-              body: JSON.stringify({ model: model_variant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
-          });
-          console.log('Status da resposta DeepSeek:', response.status);
-          if (response.ok) {
-              testResult = { success: true, message: 'Conexão com DeepSeek bem-sucedida!' };
-          } else {
-              const errorData = await response.json();
-              console.error('Resposta de erro da API DeepSeek:', errorData);
-              testResult = { success: false, message: `Falha na conexão com DeepSeek: ${errorData.error?.message || 'Erro desconhecido'}` };
-          }
-      }
-    } catch (fetchError: any) {
-      console.error(`Erro durante a chamada da API para o provedor ${provider}:`, fetchError);
-      testResult = { success: false, message: `Erro na comunicação com o provedor ${provider}: ${fetchError.message}` };
-    }
-
+    const testResult = await testLLMConnection(provider, model_variant, api_key);
 
     console.log('Edge Function test-llm-key finalizada com sucesso.');
     return new Response(JSON.stringify(testResult), {
