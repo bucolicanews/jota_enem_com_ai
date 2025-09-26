@@ -177,8 +177,10 @@ serve(async (req) => {
 
     if (consumeCreditsResponse.error) {
       console.error('Error consuming credits:', consumeCreditsResponse.error);
-      // Throw the error so the outer catch block handles it and returns a non-200 status
-      throw new Error(consumeCreditsResponse.error.message || 'Erro ao consumir créditos de perguntas.');
+      return new Response(JSON.stringify({ error: consumeCreditsResponse.error.message || 'Erro ao consumir créditos de perguntas.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403, // Forbidden due to insufficient credits
+      });
     }
     console.log('Credits consumed successfully. New credits:', consumeCreditsResponse.data.newCredits);
 
@@ -216,7 +218,6 @@ serve(async (req) => {
         .eq('user_id', user.id); // Ensure user owns the conversation
       if (updateConvError) {
         console.error('Error updating conversation timestamp:', updateConvError);
-        // Not critical enough to stop the whole process, just log
       } else {
         console.log('Conversation timestamp updated for conversationId:', currentConversationId);
       }
@@ -229,7 +230,6 @@ serve(async (req) => {
       .insert({ conversation_id: currentConversationId, sender: 'user', content: userMessage });
     if (userMsgError) {
         console.error('Error saving user message:', userMsgError);
-        // Not critical enough to stop the whole process, just log
     } else {
         console.log('User message saved to ai_chat_messages.');
     }
@@ -309,7 +309,8 @@ serve(async (req) => {
             if (errorMessage.includes('Quota exceeded') || errorMessage.includes('limit: 0')) {
                 throw new Error('Parece que o limite de uso da sua chave de API do Google Gemini foi atingido. Por favor, verifique seu plano e detalhes de faturamento no Google AI Studio, ou tente novamente mais tarde.');
             } else {
-                throw new Error(`Erro na conexão com Gemini: ${errorMessage}`);
+                // Lançar erro para qualquer outro tipo de falha do Gemini
+                throw new Error('Não foi possível acessar o modelo Gemini. Verifique se o modelo está correto e se sua chave de API tem as permissões necessárias.');
             }
         }
     } 
@@ -376,7 +377,6 @@ serve(async (req) => {
       .insert({ conversation_id: currentConversationId, sender: 'ai', content: aiResponse });
     if (aiMsgError) {
         console.error('Error saving AI message:', aiMsgError);
-        // Not critical enough to stop the whole process, just log
     } else {
         console.log('AI response saved to ai_chat_messages.');
     }
@@ -389,7 +389,6 @@ serve(async (req) => {
     })
   } catch (error: any) {
     console.error(`Erro interno na função Edge invoke-llm (provedor: ${modelProvider}):`, error);
-    // Return a non-200 status with the error message
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500, // Use 500 for internal errors, or 400 for client-side issues like invalid input
