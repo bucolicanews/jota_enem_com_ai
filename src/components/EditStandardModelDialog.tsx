@@ -257,7 +257,13 @@ export const EditStandardModelDialog = ({ model, isOpen, onClose, onSuccess }: E
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-api-key">Nova Chave de API (Opcional)</Label>
-              <PasswordInput id="edit-api-key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="••••••••••••••••" />
+              <PasswordInput 
+                id="edit-api-key" 
+                value={apiKey} 
+                onChange={(e) => setApiKey(e.target.value)} 
+                placeholder="••••••••••••••••" 
+                autoComplete="new-password"
+              />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="edit-system-message">Mensagem de Sistema (Instruções para a IA)</Label>

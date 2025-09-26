@@ -69,7 +69,7 @@ serve(async (req) => {
     }
     console.log('User authenticated:', user.id);
 
-    const { modelId, userMessage, conversationId: incomingConversationId, systemMessage: initialSystemMessage } = await req.json()
+    const { modelId, userMessage, conversationId: incomingConversationId } = await req.json()
     if (!modelId || !userMessage) {
       console.log('Access denied: modelId e userMessage são obrigatórios.');
       return new Response(JSON.stringify({ error: 'modelId e userMessage são obrigatórios' }), {
@@ -173,7 +173,7 @@ serve(async (req) => {
     if (model.is_standard) {
       console.log('Attempting to consume 1 credit for "perguntas" for user:', user.id);
       const consumeCreditsResponse = await supabaseClient.functions.invoke('consume-credits', {
-        body: { creditType: 'perguntas', amount: 1 },
+        body: { creditType: 'perguntas', amount: 1, isStandardModel: true }, // Pass isStandardModel
       });
 
       if (consumeCreditsResponse.error) {
@@ -201,7 +201,7 @@ serve(async (req) => {
       console.log('Attempting to create new conversation with title:', generatedTitle);
       const { data: newConv, error: convError } = await serviceClient
         .from('ai_conversations')
-        .insert({ user_id: user.id, model_id: modelId, title: generatedTitle /* language: selectedLanguage */ }) // Removido 'language'
+        .insert({ user_id: user.id, model_id: modelId, title: generatedTitle })
         .select('id, title')
         .single();
 
@@ -253,31 +253,20 @@ serve(async (req) => {
       // Continue without previous messages if there's an error
     }
 
-    // Prepare messages array, including system_message if available
-    const messagesForLLM: { role: string; content: string }[] = [];
-    
-    let finalSystemMessage = system_message || initialSystemMessage || '';
-    // Adicionar instrução explícita para responder em português
-    finalSystemMessage += `\n\nResponda sempre em Português do Brasil.`;
-
-    if (finalSystemMessage) {
-      messagesForLLM.push({ role: 'system', content: finalSystemMessage.trim() });
-    }
-
-    // Add previous messages to context
+    // Prepare messages array for LLM invocation
+    const chatHistoryForLLM: { role: string; content: string }[] = [];
     if (previousMessages) {
       previousMessages.forEach(msg => {
-        messagesForLLM.push({ role: msg.sender === 'user' ? 'user' : 'model', content: msg.content });
+        chatHistoryForLLM.push({ role: msg.sender === 'user' ? 'user' : 'ai', content: msg.content });
       });
     }
-    
-    // Add current user message (already saved, but needed for LLM context)
-    // A instrução de idioma foi movida para o system message para ser mais consistente
-    messagesForLLM.push({ role: 'user', content: userMessage });
-    console.log('Messages prepared for LLM:', messagesForLLM);
+    // Add current user message to chat history
+    chatHistoryForLLM.push({ role: 'user', content: userMessage });
+    console.log('Chat history prepared for LLM:', chatHistoryForLLM);
 
     // Invoke the appropriate LLM based on the provider
-    const llmResponse = await invokeLLM(provider, model_variant, api_key, messagesForLLM, system_message);
+    // Pass the full chat history and the model's system message
+    const llmResponse = await invokeLLM(provider, model_variant, api_key, chatHistoryForLLM, system_message); // Changed parameters
 
     if (!llmResponse.success) {
       aiResponse = llmResponse.errorMessage || aiResponse;

@@ -413,6 +413,7 @@ export const AdminStandardModels = () => {
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="Insira a chave de API"
                   required
+                  autoComplete="new-password"
                 />
               </div>
 

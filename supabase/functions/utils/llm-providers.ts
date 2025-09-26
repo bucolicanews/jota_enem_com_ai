@@ -13,37 +13,48 @@ interface LLMResponse {
   errorMessage?: string;
 }
 
+const GOOGLE_VERTEX_AI_REGION = 'us-central1'; // Região padrão para Vertex AI
+
 export async function invokeLLM(
   provider: string,
   modelVariant: string,
   apiKey: string,
-  messages: LLMMessage[],
-  systemMessage: string | null,
+  chatHistory: LLMMessage[], // Renomeado para clareza
+  modelSystemMessage: string | null, // Renomeado para clareza
 ): Promise<LLMResponse> {
   let aiResponse = 'Não foi possível obter uma resposta do modelo de IA.';
   let success = false;
   let errorMessage: string | undefined;
 
   try {
-    // Prepare messages array, including system_message if available
-    const messagesForLLM: { role: string; content: string }[] = [];
-    
-    let finalSystemMessage = systemMessage || '';
-    finalSystemMessage += `\n\nResponda sempre em Português do Brasil.`;
+    // Adicionar instrução explícita para responder em Português à mensagem de sistema do modelo
+    const finalSystemInstruction = (modelSystemMessage ? modelSystemMessage.trim() + '\n\n' : '') + 'Responda sempre em Português do Brasil.';
 
-    if (finalSystemMessage) {
-      messagesForLLM.push({ role: 'system', content: finalSystemMessage.trim() });
+    // Preparar mensagens para diferentes APIs LLM
+    let messagesForApi: any[] = [];
+
+    if (provider === 'Google Gemini') {
+      // Para Gemini (Vertex AI), system_instruction é separado, e os papéis são 'user'/'model'
+      messagesForApi = chatHistory.map(msg => ({
+        role: msg.role === 'ai' ? 'model' : 'user', // Vertex AI usa 'model' para respostas da IA
+        parts: [{ text: msg.content }]
+      }));
+    } else {
+      // Para OpenAI, Anthropic, Groq, DeepSeek, a mensagem de sistema faz parte do array de mensagens
+      if (finalSystemInstruction) {
+        messagesForApi.push({ role: 'system', content: finalSystemInstruction });
+      }
+      messagesForApi.push(...chatHistory.map(msg => ({
+        role: msg.role === 'ai' ? 'assistant' : msg.role, // APIs tipo OpenAI usam 'assistant' para respostas da IA
+        content: msg.content
+      })));
     }
-
-    messages.forEach(msg => {
-      messagesForLLM.push({ role: msg.role, content: msg.content });
-    });
 
     if (provider === 'OpenAI') {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: modelVariant, messages: messagesForLLM, max_tokens: 500 })
+        body: JSON.stringify({ model: modelVariant, messages: messagesForApi, max_tokens: 500 })
       });
       if (response.ok) {
         const data = await response.json();
@@ -54,15 +65,23 @@ export async function invokeLLM(
         errorMessage = `Falha na conexão com OpenAI: ${errorData.error?.message || 'Erro desconhecido'}`;
       }
     } else if (provider === 'Google Gemini') {
-      const accessToken = await getVertexAIAuthToken();
-      const finalGeminiMessages = messagesForLLM.map(msg => ({
-        role: msg.role === 'system' ? 'user' : msg.role, // Gemini doesn't have a 'system' role directly in content
-        parts: [{ text: msg.content }]
-      }));
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelVariant}:generateContent?key=${apiKey}`, {
+      const { token: accessToken, projectId } = await getVertexAIAuthToken();
+      const vertexAiEndpoint = `https://${GOOGLE_VERTEX_AI_REGION}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${GOOGLE_VERTEX_AI_REGION}/publishers/google/models/${modelVariant}:generateContent`;
+
+      const body: any = {
+        contents: messagesForApi,
+        generationConfig: {
+          maxOutputTokens: 500,
+        },
+      };
+      if (finalSystemInstruction) {
+        body.system_instruction = { parts: [{ text: finalSystemInstruction }] };
+      }
+
+      const response = await fetch(vertexAiEndpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` }, // Usar token de serviço
-          body: JSON.stringify({ contents: finalGeminiMessages })
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+          body: JSON.stringify(body)
       });
       if (response.ok) {
         const data = await response.json();
@@ -81,7 +100,7 @@ export async function invokeLLM(
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: modelVariant, messages: messagesForLLM, max_tokens: 500 })
+        body: JSON.stringify({ model: modelVariant, messages: messagesForApi, max_tokens: 500 })
       });
       if (response.ok) {
         const data = await response.json();
@@ -95,7 +114,7 @@ export async function invokeLLM(
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: modelVariant, messages: messagesForLLM, max_tokens: 500 })
+        body: JSON.stringify({ model: modelVariant, messages: messagesForApi, max_tokens: 500 })
       });
       if (response.ok) {
         const data = await response.json();
@@ -109,7 +128,7 @@ export async function invokeLLM(
       const response = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: modelVariant, messages: messagesForLLM, max_tokens: 500 })
+        body: JSON.stringify({ model: modelVariant, messages: messagesForApi, max_tokens: 500 })
       });
       if (response.ok) {
         const data = await response.json();
@@ -138,11 +157,23 @@ export async function testLLMConnection(
   let message = 'Provedor não suportado';
 
   try {
+    const testUserMessage = 'Hello';
+    const testSystemInstruction = 'Responda sempre em Português do Brasil.';
+
+    let messagesForApi: any[] = [];
+
+    if (provider === 'Google Gemini') {
+      messagesForApi = [{ role: 'user', parts: [{ text: testUserMessage }] }];
+    } else {
+      messagesForApi.push({ role: 'system', content: testSystemInstruction });
+      messagesForApi.push({ role: 'user', content: testUserMessage });
+    }
+
     if (provider === 'OpenAI') {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: modelVariant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+        body: JSON.stringify({ model: modelVariant, messages: messagesForApi, max_tokens: 5 })
       });
       if (response.ok) {
         success = true;
@@ -152,11 +183,21 @@ export async function testLLMConnection(
         message = `Falha na conexão com OpenAI: ${errorData.error?.message || 'Erro desconhecido'}`;
       }
     } else if (provider === 'Google Gemini') {
-      const accessToken = await getVertexAIAuthToken();
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelVariant}:generateContent?key=${apiKey}`, {
+      const { token: accessToken, projectId } = await getVertexAIAuthToken();
+      const vertexAiEndpoint = `https://${GOOGLE_VERTEX_AI_REGION}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${GOOGLE_VERTEX_AI_REGION}/publishers/google/models/${modelVariant}:generateContent`;
+
+      const body = {
+        contents: messagesForApi,
+        system_instruction: { parts: [{ text: testSystemInstruction }] },
+        generationConfig: {
+          maxOutputTokens: 5,
+        },
+      };
+
+      const response = await fetch(vertexAiEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` }, // Usar token de serviço
-        body: JSON.stringify({ contents: [{ parts: [{ text: 'Hello' }] }] })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify(body)
       });
       if (response.ok) {
         success = true;
@@ -169,7 +210,7 @@ export async function testLLMConnection(
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: modelVariant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+        body: JSON.stringify({ model: modelVariant, messages: messagesForApi, max_tokens: 5 })
       });
       if (response.ok) {
         success = true;
@@ -182,7 +223,7 @@ export async function testLLMConnection(
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: modelVariant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+        body: JSON.stringify({ model: modelVariant, messages: messagesForApi, max_tokens: 5 })
       });
       if (response.ok) {
         success = true;
@@ -195,7 +236,7 @@ export async function testLLMConnection(
       const response = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: modelVariant, messages: [{ role: 'user', content: 'Hello' }], max_tokens: 5 })
+        body: JSON.stringify({ model: modelVariant, messages: messagesForApi, max_tokens: 5 })
       });
       if (response.ok) {
         success = true;
