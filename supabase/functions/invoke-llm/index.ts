@@ -311,7 +311,7 @@ serve(async (req) => {
             console.error('Gemini API error:', errorData);
             const errorMessage = errorData.error?.message || 'Erro desconhecido';
             if (errorMessage.includes('Quota exceeded') || errorMessage.includes('limit: 0')) {
-                aiResponse = 'Desculpe, o limite de uso da IA (Google Gemini) foi atingido. Por favor, verifique seu plano e detalhes de faturamento no Google AI Studio ou tente novamente mais tarde.';
+                aiResponse = 'Parece que o limite de uso da sua chave de API do Google Gemini foi atingido. Por favor, verifique seu plano e detalhes de faturamento no Google AI Studio, ou tente novamente mais tarde.';
             } else {
                 aiResponse = `Erro na conexão com Gemini: ${errorMessage}`;
             }
@@ -331,7 +331,7 @@ serve(async (req) => {
         } else {
             const errorData = await response.json();
             console.error('Anthropic API error:', errorData);
-            aiResponse = `Erro na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}`;
+            aiResponse = `Falha na conexão com Anthropic: ${errorData.error?.message || 'Erro desconhecido'}`;
         }
     }
     else if (provider === 'Groq') {
@@ -348,7 +348,7 @@ serve(async (req) => {
         } else {
             const errorData = await response.json();
             console.error('Groq API error:', errorData);
-            aiResponse = `Erro na conexão com Groq: ${errorData.error?.message || 'Erro desconhecido'}`;
+            aiResponse = `Falha na conexão com Groq: ${errorData.error?.message || 'Erro desconhecido'}`;
         }
     }
     else if (provider === 'DeepSeek') {
