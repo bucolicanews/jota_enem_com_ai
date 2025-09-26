@@ -1,168 +1,58 @@
-"use client";
-
-// @ts-ignore: Deno imports are valid in runtime
-/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
-
-// @ts-ignore: Deno imports are valid in runtime
-import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
-// @ts-ignore: ESM imports are valid in runtime
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-import { testLLMConnection } from '../utils/llm-providers.ts'; // Importar o novo utilitário
+// Removido: /// <reference lib="deno.ns" />
+import { serve } from 'std/http'; // Caminho atualizado para usar o alias
+import { createClient } from '@supabase/supabase-js'; // Caminho atualizado para usar o alias
+import { testLLMConnection } from 'shared/llm-providers'; // Caminho atualizado para usar o alias
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
-  console.log('Edge Function test-llm-key started.');
-
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Create a Supabase client with the user's auth token
-    // @ts-ignore: Deno is available in runtime
+    const { modelId } = await req.json();
+
     const supabaseClient = createClient(
-      // @ts-ignore: Deno is available in runtime
       Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore: Deno is available in runtime
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    )
-
-    // Get the user from the token
-    const { data: { user }, error: userAuthError } = await supabaseClient.auth.getUser()
-    if (userAuthError) {
-        console.error('User authentication error:', userAuthError);
-    }
-    if (!user) {
-      console.log('Access denied: No user found.');
-      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      })
-    }
-    console.log('User authenticated:', user.id);
-
-    const { modelId } = await req.json()
-    if (!modelId) {
-      console.log('Access denied: modelId é obrigatório.');
-      return new Response(JSON.stringify({ error: 'modelId é obrigatório' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      })
-    }
-    console.log('Testing modelId:', modelId);
-
-    // Create a service role client to securely fetch the API key and user permissions
-    // @ts-ignore: Deno is available in runtime
-    const serviceClient = createClient(
-        // @ts-ignore: Deno is available in runtime
-        Deno.env.get('SUPABASE_URL') ?? '',
-        // @ts-ignore: Deno is available in runtime
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 1. Fetch user's permission level
-    const { data: clientProfile, error: clientProfileError } = await serviceClient
-      .from('cliente')
-      .select('permissao_id')
-      .eq('id', user.id)
-      .single();
-
-    if (clientProfileError || !clientProfile) {
-      console.error('Erro ao buscar perfil do cliente:', clientProfileError);
-      return new Response(JSON.stringify({ error: 'Erro ao verificar permissões do usuário.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 403,
-      });
-    }
-
-    const { data: userPermission, error: userPermissionError } = await serviceClient
-      .from('permissoes')
-      .select('nome')
-      .eq('id', clientProfile.permissao_id)
-      .single();
-
-    if (userPermissionError || !userPermission) {
-      console.error('Erro ao buscar nome da permissão:', userPermissionError);
-      return new Response(JSON.stringify({ error: 'Erro ao verificar permissões do usuário.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 403,
-      });
-    }
-
-    const permissionName = userPermission.nome;
-    const isPro = ['Pro', 'Prof', 'Admin'].includes(permissionName);
-    const isProf = ['Prof', 'Admin'].includes(permissionName);
-    const isAdmin = permissionName === 'Admin';
-
-    // 2. Fetch the model by ID
-    const { data: model, error: dbError } = await serviceClient
+    const { data: model, error: modelError } = await supabaseClient
       .from('language_models')
-      .select('api_key, provider, model_name, model_variant, is_standard, user_id')
+      .select('provider, model_variant, api_key')
       .eq('id', modelId)
-      .single()
+      .single();
 
-    if (dbError) {
-        console.error('Database fetch error for model:', dbError);
+    if (modelError || !model) {
+      throw new Error(`Model not found: ${modelError?.message || 'Unknown error'}`);
     }
-    if (!model) {
-      console.log('Modelo não encontrado para o ID:', modelId);
-      return new Response(JSON.stringify({ error: 'Modelo de IA não encontrado.' }), {
+
+    const { success, errorMessage } = await testLLMConnection(
+      model.provider,
+      model.model_variant,
+      model.api_key
+    );
+
+    if (success) {
+      return new Response(JSON.stringify({ success: true, message: 'Conexão bem-sucedida!' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 404,
-      })
-    }
-    console.log('Modelo buscado:', { id: model.id, provider: model.provider, model_variant: model.model_variant, is_standard: model.is_standard, user_id: model.user_id });
-
-    // 3. Implement Access Logic
-    let hasAccess = false;
-    if (model.is_standard) {
-      // Standard models require PRO, Prof, or Admin permission
-      if (model.user_id !== null) {
-        // Invalid configuration for a standard model
-        console.error(`Configuração inválida: Modelo padrão ${model.id} tem user_id.`);
-        return new Response(JSON.stringify({ error: 'Configuração inválida do modelo padrão.' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 403,
-        });
-      }
-      hasAccess = isPro || isProf || isAdmin;
+        status: 200,
+      });
     } else {
-      // Personal models require matching user_id
-      hasAccess = model.user_id === user.id;
-    }
-
-    if (!hasAccess) {
-      console.log('Acesso negado ao modelo de IA.');
-      return new Response(JSON.stringify({ error: 'Acesso negado ao modelo de IA.' }), {
+      return new Response(JSON.stringify({ success: false, message: errorMessage || 'Falha ao testar a conexão.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 403,
-      })
+        status: 400,
+      });
     }
-    console.log('Acesso concedido para teste do modelo.');
-
-    const { api_key, provider, model_variant } = model;
-    
-    console.log('DEBUG: Provedor do DB:', provider);
-    console.log('DEBUG: Variante do Modelo do DB:', model_variant);
-
-    const testResult = await testLLMConnection(provider, model_variant, api_key);
-
-    console.log('Edge Function test-llm-key finalizada com sucesso.');
-    return new Response(JSON.stringify(testResult), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    })
   } catch (error: any) {
-    console.error('Erro não tratado em test-llm-key:', error); // This is the key log
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ success: false, message: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
-    })
+    });
   }
-})
+});
