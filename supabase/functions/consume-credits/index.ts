@@ -49,10 +49,10 @@ serve(async (req) => {
       });
     }
 
-    // Fetch user's profile and check for parent_id
+    // Fetch user's profile and check for parent_id and permission
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('cliente')
-      .select(`id, parent_id, creditos_${creditType}`)
+      .select(`id, parent_id, permissao_id, creditos_${creditType}`)
       .eq('id', user.id)
       .single();
 
@@ -60,6 +60,29 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'User profile not found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
+      });
+    }
+
+    // Check user's permission name
+    const { data: permission, error: permissionNameError } = await supabaseAdmin
+      .from('permissoes')
+      .select('nome')
+      .eq('id', userProfile.permissao_id)
+      .single();
+
+    if (permissionNameError || !permission) {
+      console.error('Error fetching permission name:', permissionNameError);
+      return new Response(JSON.stringify({ error: 'Permission not found for user' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403,
+      });
+    }
+
+    // If user is an Admin, bypass credit consumption
+    if (permission.nome === 'Admin') {
+      return new Response(JSON.stringify({ success: true, newCredits: -1 }), { // -1 to indicate unlimited
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
       });
     }
 
@@ -85,7 +108,7 @@ serve(async (req) => {
     }
 
     if (currentCredits < amount) {
-      return new Response(JSON.stringify({ error: 'Insufficient credits' }), {
+      return new Response(JSON.stringify({ error: `Você não tem créditos de ${creditType} suficientes. Por favor, atualize seu plano.` }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 403,
       });
