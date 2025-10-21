@@ -23,7 +23,7 @@ const UpdatePassword = () => {
         setSessionValid(true);
       } else if (session) {
         // Se a sessão é válida mas o evento não é de recuperação, redireciona para o dashboard
-        navigate('/reset-password');
+        navigate('/update-password');
       } else {
         // Se a sessão não for válida de forma alguma, setamos a permissão como falsa
         setSessionValid(false);
